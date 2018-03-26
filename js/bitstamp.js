@@ -610,7 +610,7 @@ module.exports = class bitstamp extends Exchange {
                 url += '?' + this.urlencode (query);
         } else {
             this.checkRequiredCredentials ();
-            let nonce = this.nonce ().toString ();
+            let nonce = this.milliseconds ().toString ();
             let auth = nonce + this.uid + this.apiKey;
             let signature = this.encode (this.hmac (this.encode (auth), this.encode (this.secret)));
             query = this.extend ({
