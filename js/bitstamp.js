@@ -276,22 +276,21 @@ module.exports = class bitstamp extends Exchange {
     parseTrade (trade, market = undefined) {
         let timestamp = undefined;
         let symbol = undefined;
+        let type = undefined;
+        let sideValues = { '0': 'buy', '1': 'sell' };
         if ('date' in trade) {
             timestamp = parseInt (trade['date']) * 1000;
         } else if ('datetime' in trade) {
             timestamp = this.parse8601 (trade['datetime']);
+            const typeValues = { '0': 'deposit', '1': 'withdrawal', '2': 'market trade', '14': 'sub account transfer' };
+            type = typeValues[this.safeInteger (trade, 'type')];
+            sideValues = null;
         }
         // only if overrided externally
         let side = this.safeString (trade, 'side');
         let orderId = this.safeString (trade, 'order_id');
-        if (typeof orderId === 'undefined')
-            if (typeof side === 'undefined') {
-                side = this.safeInteger (trade, 'type');
-                if (side === 0)
-                    side = 'buy';
-                else
-                    side = 'sell';
-            }
+        if (typeof orderId === 'undefined' && typeof side === 'undefined' && sideValues)
+            side = sideValues[this.safeInteger (trade, 'type')];
         let price = this.safeFloat (trade, 'price');
         let amount = this.safeFloat (trade, 'amount');
         let id = this.safeString (trade, 'tid');
@@ -317,6 +316,8 @@ module.exports = class bitstamp extends Exchange {
             amount = this.safeFloat (trade, market['baseId'], amount);
             feeCurrency = market['quote'];
             symbol = market['symbol'];
+            if (typeof side === 'undefined' && amount !== 0)
+                side = amount < 0 ? 'sell' : 'buy';
         }
         let cost = undefined;
         if (typeof price !== 'undefined')
@@ -329,7 +330,7 @@ module.exports = class bitstamp extends Exchange {
             'datetime': this.iso8601 (timestamp),
             'symbol': symbol,
             'order': orderId,
-            'type': undefined,
+            'type': type,
             'side': side,
             'price': price,
             'amount': amount,
