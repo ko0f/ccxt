@@ -216,12 +216,17 @@ class bitfinex extends Exchange {
                 ),
             ),
             'commonCurrencies' => array (
-                'DSH' => 'DASH', // Bitfinex names Dash as DSH, instead of DASH
-                'QTM' => 'QTUM',
                 'BCC' => 'CST_BCC',
                 'BCU' => 'CST_BCU',
-                'IOT' => 'IOTA',
                 'DAT' => 'DATA',
+                'DSH' => 'DASH', // Bitfinex names Dash as DSH, instead of DASH
+                'IOT' => 'IOTA',
+                'MNA' => 'MANA',
+                'QSH' => 'QASH',
+                'QTM' => 'QTUM',
+                'SNG' => 'SNGLS',
+                'SPK' => 'SPANK',
+                'YYW' => 'YOYOW',
             ),
             'exceptions' => array (
                 'exact' => array (
@@ -398,11 +403,12 @@ class bitfinex extends Exchange {
     public function parse_ticker ($ticker, $market = null) {
         $timestamp = floatval ($ticker['timestamp']) * 1000;
         $symbol = null;
-        if ($market) {
+        if ($market !== null) {
             $symbol = $market['symbol'];
         } else if (is_array ($ticker) && array_key_exists ('pair', $ticker)) {
             $id = $ticker['pair'];
-            $market = $this->find_market($ticker['pair']);
+            if (is_array ($this->markets_by_id) && array_key_exists ($id, $this->markets_by_id))
+                $market = $this->markets_by_id[$id];
             if ($market !== null) {
                 $symbol = $market['symbol'];
             } else {
@@ -413,6 +419,7 @@ class bitfinex extends Exchange {
                 $symbol = $base . '/' . $quote;
             }
         }
+        $last = floatval ($ticker['last_price']);
         return array (
             'symbol' => $symbol,
             'timestamp' => $timestamp,
@@ -420,12 +427,14 @@ class bitfinex extends Exchange {
             'high' => floatval ($ticker['high']),
             'low' => floatval ($ticker['low']),
             'bid' => floatval ($ticker['bid']),
+            'bidVolume' => null,
             'ask' => floatval ($ticker['ask']),
+            'askVolume' => null,
             'vwap' => null,
             'open' => null,
-            'close' => null,
-            'first' => null,
-            'last' => floatval ($ticker['last_price']),
+            'close' => $last,
+            'last' => $last,
+            'previousClose' => null,
             'change' => null,
             'percentage' => null,
             'average' => floatval ($ticker['mid']),

@@ -22,18 +22,20 @@ class bitfinex2 (bitfinex):
             # new metainfo interface
             'has': {
                 'CORS': True,
-                'createOrder': False,
-                'createMarketOrder': False,
                 'createLimitOrder': False,
+                'createMarketOrder': False,
+                'createOrder': False,
+                'deposit': False,
                 'editOrder': False,
+                'fetchClosedOrders': False,
+                'fetchFundingFees': False,
                 'fetchMyTrades': False,
                 'fetchOHLCV': True,
-                'fetchTickers': True,
-                'fetchOrder': True,
                 'fetchOpenOrders': False,
-                'fetchClosedOrders': False,
+                'fetchOrder': True,
+                'fetchTickers': True,
+                'fetchTradingFees': False,
                 'withdraw': True,
-                'deposit': False,
             },
             'timeframes': {
                 '1m': '1m',
@@ -253,6 +255,7 @@ class bitfinex2 (bitfinex):
             'asks': [],
             'timestamp': timestamp,
             'datetime': self.iso8601(timestamp),
+            'nonce': None,
         }
         for i in range(0, len(orderbook)):
             order = orderbook[i]
@@ -271,6 +274,7 @@ class bitfinex2 (bitfinex):
         if market:
             symbol = market['symbol']
         length = len(ticker)
+        last = ticker[length - 4]
         return {
             'symbol': symbol,
             'timestamp': timestamp,
@@ -278,12 +282,14 @@ class bitfinex2 (bitfinex):
             'high': ticker[length - 2],
             'low': ticker[length - 1],
             'bid': ticker[length - 10],
+            'bidVolume': None,
             'ask': ticker[length - 8],
+            'askVolume': None,
             'vwap': None,
             'open': None,
-            'close': None,
-            'first': None,
-            'last': ticker[length - 4],
+            'close': last,
+            'last': last,
+            'previousClose': None,
             'change': ticker[length - 6],
             'percentage': ticker[length - 5],
             'average': None,
