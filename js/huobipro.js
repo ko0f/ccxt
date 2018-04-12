@@ -428,6 +428,10 @@ module.exports = class huobipro extends Exchange {
         let remaining = amount - filled;
         let price = parseFloat (order['price']);
         let cost = parseFloat (order['field-cash-amount']);
+        let fee = {
+            cost: parseFloat (order['field-fees']),
+            currency: market.quote
+        };
         let average = 0;
         if (filled)
             average = parseFloat (cost / filled);
@@ -446,7 +450,7 @@ module.exports = class huobipro extends Exchange {
             'filled': filled,
             'remaining': remaining,
             'status': status,
-            'fee': undefined,
+            'fee': fee,
         };
         return result;
     }
