@@ -102,6 +102,7 @@ module.exports = class huobipro extends Exchange {
                 },
             },
             'exceptions': {
+                'order-marketorder-amount-min-error': InvalidOrder, // market order amount error, min: `0.1`
                 'order-limitorder-amount-min-error': InvalidOrder, // limit order amount error, min: `0.001`
                 'order-orderstate-error': OrderNotFound, // canceling an already canceled order
                 'order-queryorder-invalid': OrderNotFound, // querying a non-existent order
