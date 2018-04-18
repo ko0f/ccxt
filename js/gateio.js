@@ -22,6 +22,7 @@ module.exports = class gateio extends Exchange {
                 'withdraw': true,
                 'createDepositAddress': true,
                 'fetchDepositAddress': true,
+                'fetchOpenOrders': true,
             },
             'urls': {
                 'logo': 'https://user-images.githubusercontent.com/1294454/31784029-0313c702-b509-11e7-9ccc-bc0da6a0e435.jpg',
@@ -126,7 +127,28 @@ module.exports = class gateio extends Exchange {
         return result;
     }
 
-    async fetchBalance (params = {}) {
+   async fetchOpenOrders (symbol = undefined, since = undefined, limit = undefined, params = {}) {
+      await this.loadMarkets ();
+      let market = this.market (symbol);
+      let response = await this.privatePostOpenOrders (this.extend ({}, params));
+      return this.parseOrders (response['orders'], market, since, limit);
+   }
+
+   async fetchMyTrades (symbol = undefined, since = undefined, limit = undefined, params = {}) {
+      if (!symbol)
+         throw new ExchangeError (this.id + ' fetchMyTrades requires a symbol param');
+      await this.loadMarkets ();
+      let request = {};
+      let market = undefined;
+      if (symbol) {
+         market = this.market (symbol);
+         request['currencyPair'] = market['id'];
+      }
+      let response = await this.privatePostTradeHistory (this.extend (request, params));
+      return this.parseTrades (response.trades, market, since, limit);
+   }
+
+   async fetchBalance (params = {}) {
         await this.loadMarkets ();
         let balance = await this.privatePostBalances ();
         let result = { 'info': balance };
@@ -266,7 +288,11 @@ module.exports = class gateio extends Exchange {
 
     async cancelOrder (id, symbol = undefined, params = {}) {
         await this.loadMarkets ();
-        return await this.privatePostCancelOrder ({ 'orderNumber': id });
+        let request = this.extend ({
+           'orderNumber': id,
+           'currencyPair': this.marketId(symbol)
+        }, params);
+        return await this.privatePostCancelOrder (request);
     }
 
     async queryDepositAddress (method, currency, params = {}) {
