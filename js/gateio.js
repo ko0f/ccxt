@@ -260,7 +260,50 @@ module.exports = class gateio extends Exchange {
         };
     }
 
-    async fetchTrades (symbol, since = undefined, limit = undefined, params = {}) {
+   parseOrderStatus (status) {
+       if (status === 'cancelled')
+           return 'canceled';
+       return status;
+   }
+
+   parseOrder (order, market = undefined) {
+      let id = order['orderNumber'];
+      let status = this.safeString (order, 'status');
+      if (status !== 'undefined')
+         status = this.parseOrderStatus (status);
+      let timestamp = order['timestamp'] * 1000;
+      let symbol = undefined;
+      if (!market)
+         market = this.markets_by_id[order['currencyPair'].toLowerCase()];
+      if (market)
+         symbol = market['symbol'];
+      let amount = this.safeFloat (order, 'initialAmount');
+      let price = this.safeFloat (order, 'rate');
+      let filled = this.safeFloat (order, 'filledAmount');
+      let remaining = amount - filled;
+      let cost = price * filled;
+      let fee = undefined;
+      let result = {
+         'info': order,
+         'id': id,
+         'symbol': symbol,
+         'timestamp': timestamp,
+         'datetime': this.iso8601 (timestamp),
+         'lastTradeTimestamp': undefined,
+         'type': 'limit',
+         'side': order['type'],
+         'price': price,
+         'cost': cost,
+         'amount': amount,
+         'remaining': remaining,
+         'filled': filled,
+         'status': status,
+         'fee': fee,
+      };
+      return result;
+   }
+
+   async fetchTrades (symbol, since = undefined, limit = undefined, params = {}) {
         await this.loadMarkets ();
         let market = this.market (symbol);
         let response = await this.publicGetTradeHistoryId (this.extend ({
