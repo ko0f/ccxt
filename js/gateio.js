@@ -23,6 +23,7 @@ module.exports = class gateio extends Exchange {
                 'createDepositAddress': true,
                 'fetchDepositAddress': true,
                 'fetchOpenOrders': true,
+                'fetchOrder': true,
             },
             'urls': {
                 'logo': 'https://user-images.githubusercontent.com/1294454/31784029-0313c702-b509-11e7-9ccc-bc0da6a0e435.jpg',
@@ -133,6 +134,42 @@ module.exports = class gateio extends Exchange {
       let response = await this.privatePostOpenOrders (this.extend ({}, params));
       return this.parseOrders (response['orders'], market, since, limit);
    }
+
+   async fetchOrder (id, symbol = undefined, params = {}) {
+      await this.loadMarkets ();
+      if (typeof symbol === 'undefined')
+         throw new ExchangeError (this.id + ' fetchOrder requires a symbol argument');
+      let market = this.market (symbol);
+      let response = await this.privatePostGetOrder (this.extend ({
+         'orderNumber': parseInt (id),
+         'currencyPair': market['id'],
+      }, params));
+      if (response['result'] && response['order'])
+         return this.parseOrder (response['order']);
+      throw new OrderNotFound (this.id + ' order ' + id + ' not found');
+   }
+
+   /*async fetchOrders (symbol = undefined, since = undefined, limit = undefined, params = {}) {
+      if ('fetchOrdersRequiresSymbol' in this.options)
+         if (this.options['fetchOrdersRequiresSymbol'])
+            if (typeof symbol === 'undefined')
+               throw new ExchangeError (this.id + ' fetchOrders requires a symbol argument');
+      await this.loadMarkets ();
+      let request = {};
+      let market = undefined;
+      if (typeof symbol !== 'undefined') {
+         let market = this.market (symbol);
+         request['pair'] = market['id'];
+      }
+      let response = await this.privatePostActiveOrders (this.extend (request, params));
+      // liqui etc can only return 'open' orders (i.e. no way to fetch 'closed' orders)
+      let openOrders = [];
+      if ('return' in response)
+         openOrders = this.parseOrders (response['return'], market);
+      let allOrders = this.updateCachedOrders (openOrders, symbol);
+      let result = this.filterBySymbol (allOrders, symbol);
+      return this.filterBySinceLimit (result, since, limit);
+   }*/
 
    async fetchMyTrades (symbol = undefined, since = undefined, limit = undefined, params = {}) {
       if (!symbol)
@@ -267,7 +304,7 @@ module.exports = class gateio extends Exchange {
    }
 
    parseOrder (order, market = undefined) {
-      let id = order['orderNumber'];
+      let id = parseInt (order['orderNumber']);
       let status = this.safeString (order, 'status');
       if (status !== 'undefined')
          status = this.parseOrderStatus (status);
@@ -283,6 +320,12 @@ module.exports = class gateio extends Exchange {
       let remaining = amount - filled;
       let cost = price * filled;
       let fee = undefined;
+      if (order['fee']) {
+         fee = {
+            cost: order['feeValue'],
+            currency: order['feeCurrency'],
+         }
+      }
       let result = {
          'info': order,
          'id': id,
@@ -332,7 +375,7 @@ module.exports = class gateio extends Exchange {
     async cancelOrder (id, symbol = undefined, params = {}) {
         await this.loadMarkets ();
         let request = this.extend ({
-           'orderNumber': id,
+           'orderNumber': parseInt (id),
            'currencyPair': this.marketId(symbol)
         }, params);
         return await this.privatePostCancelOrder (request);
