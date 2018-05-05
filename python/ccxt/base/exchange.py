@@ -4,7 +4,7 @@
 
 # -----------------------------------------------------------------------------
 
-__version__ = '1.13.32'
+__version__ = '1.13.83'
 
 # -----------------------------------------------------------------------------
 
@@ -176,7 +176,7 @@ class Exchange(object):
 
     precisionMode = DECIMAL_PLACES
 
-    minFundingAddressLength = 10  # used in check_address
+    minFundingAddressLength = 1  # used in check_address
     substituteCommonCurrencyCodes = True
     lastRestRequestTimestamp = 0
     lastRestPollTimestamp = 0
@@ -556,6 +556,10 @@ class Exchange(object):
     @staticmethod
     def array_concat(a, b):
         return a + b
+
+    @staticmethod
+    def in_array(needle, haystack):
+        return needle in haystack
 
     @staticmethod
     def extract_params(string):

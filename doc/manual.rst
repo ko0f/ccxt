@@ -172,7 +172,7 @@ The ccxt library currently supports the following 114 cryptocurrency exchange ma
 +------------------------+----------------------+----------------------------------------------------------------+-------+---------------------------------------------------------------------------------------------------+--------------------------------------------+
 | |ethfinex|             | ethfinex             | `Ethfinex <https://www.ethfinex.com>`__                        | 1     | `API <https://bitfinex.readme.io/v1/docs>`__                                                      | British Virgin Islands                     |
 +------------------------+----------------------+----------------------------------------------------------------+-------+---------------------------------------------------------------------------------------------------+--------------------------------------------+
-| |exmo|                 | exmo                 | `EXMO <https://exmo.me>`__                                     | 1     | `API <https://exmo.me/en/api_doc>`__                                                              | Spain, Russia                              |
+| |exmo|                 | exmo                 | `EXMO <https://exmo.me/?ref=131685>`__                         | 1     | `API <https://exmo.me/en/api_doc?ref=131685>`__                                                   | Spain, Russia                              |
 +------------------------+----------------------+----------------------------------------------------------------+-------+---------------------------------------------------------------------------------------------------+--------------------------------------------+
 | |exx|                  | exx                  | `EXX <https://www.exx.com/>`__                                 | \*    | `API <https://www.exx.com/help/restApi>`__                                                        | China                                      |
 +------------------------+----------------------+----------------------------------------------------------------+-------+---------------------------------------------------------------------------------------------------+--------------------------------------------+
@@ -196,9 +196,9 @@ The ccxt library currently supports the following 114 cryptocurrency exchange ma
 +------------------------+----------------------+----------------------------------------------------------------+-------+---------------------------------------------------------------------------------------------------+--------------------------------------------+
 | |hadax|                | hadax                | `HADAX <https://www.hadax.com>`__                              | 1     | `API <https://github.com/huobiapi/API_Docs/wiki>`__                                               | China                                      |
 +------------------------+----------------------+----------------------------------------------------------------+-------+---------------------------------------------------------------------------------------------------+--------------------------------------------+
-| |hitbtc|               | hitbtc               | `HitBTC <https://hitbtc.com>`__                                | 1     | `API <https://github.com/hitbtc-com/hitbtc-api/blob/master/APIv1.md>`__                           | UK                                         |
+| |hitbtc|               | hitbtc               | `HitBTC <https://hitbtc.com>`__                                | 1     | `API <https://github.com/hitbtc-com/hitbtc-api/blob/master/APIv1.md>`__                           | Hong Kong                                  |
 +------------------------+----------------------+----------------------------------------------------------------+-------+---------------------------------------------------------------------------------------------------+--------------------------------------------+
-| |hitbtc2|              | hitbtc2              | `HitBTC v2 <https://hitbtc.com>`__                             | 2     | `API <https://api.hitbtc.com>`__                                                                  | UK                                         |
+| |hitbtc2|              | hitbtc2              | `HitBTC v2 <https://hitbtc.com>`__                             | 2     | `API <https://api.hitbtc.com>`__                                                                  | Hong Kong                                  |
 +------------------------+----------------------+----------------------------------------------------------------+-------+---------------------------------------------------------------------------------------------------+--------------------------------------------+
 | |huobi|                | huobi                | `Huobi <https://www.huobi.com>`__                              | 3     | `API <https://github.com/huobiapi/API_Docs_en/wiki>`__                                            | China                                      |
 +------------------------+----------------------+----------------------------------------------------------------+-------+---------------------------------------------------------------------------------------------------+--------------------------------------------+
@@ -523,6 +523,8 @@ Exchanges usually impose what is called a *rate limit*. Exchanges will remember 
 **WARNING: Stay under the rate limit to avoid ban!**
 
 Most exchanges allow **up to 1 or 2 requests per second**. Exchanges may temporarily restrict your access to their API or ban you for some period of time if you are too aggressive with your requests.
+
+**The ``exchange.rateLimit`` property is set to a safe default which is sub-optimal. Some exchanges may have varying rate limits for different endpoints. It is up to the library user to tweak ``rateLimit`` according to application-specific purposes.**
 
 DDoS Protection By Cloudflare / Incapsula
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1410,6 +1412,11 @@ To get the list of available timeframes for your exchange see the ``timeframes``
 
 **Note that the info from the last (current) candle may be incomplete until the candle is closed (until the next candle starts).**
 
+Like with most other unified and implicit methods, the ``fetchOHLCV`` method accepts as its last argument an associative array (a dictionary) of extra ``params``, which is used to override default values that are sent in requests to the exchanges. The contents of ``params`` are exchange-specific, consult the exchanges' API documentation for supported fields and values.
+
+OHLCV Structure
+~~~~~~~~~~~~~~~
+
 The fetchOHLCV method shown above returns a list (a flat array) of OHLCV candles represented by the following structure:
 
 .. code:: javascript
@@ -1426,7 +1433,7 @@ The fetchOHLCV method shown above returns a list (a flat array) of OHLCV candles
         ...
     ]
 
-Like with most other unified and implicit methods, the ``fetchOHLCV`` method accepts as its last argument an associative array (a dictionary) of extra ``params``, which is used to override default values that are sent in requests to the exchanges. The contents of ``params`` are exchange-specific, consult the exchanges' API documentation for supported fields and values.
+The list of candles is returned sorted in ascending (historical) order, oldest candle first, most recent candle last.
 
 OHLCV Emulation
 ~~~~~~~~~~~~~~~
@@ -1585,9 +1592,9 @@ To set up an exchange for trading just assign the API credentials to an existing
     include 'ccxt.php'
 
     // any time
-    $quoine = new \ccxt\quoine ();
-    $quoine->apiKey = 'YOUR_QUOINE_API_KEY';
-    $quoine->secret = 'YOUR_QUOINE_SECRET_KEY';
+    $quoinex = new \ccxt\quoinex ();
+    $quoinex->apiKey = 'YOUR_QUOINE_API_KEY';
+    $quoinex->secret = 'YOUR_QUOINE_SECRET_KEY';
 
     // upon instantiation
     $zaif = new \ccxt\zaif (array (
@@ -2068,9 +2075,9 @@ As the price and amount of the incoming sell (ask) order cover more than one bid
 
 3. Order ``b`` now has a status of ``closed`` and a filled volume of 100. It contains one trade against the selling order. The selling order has ``open`` status and a filled volume of 100. It contains one trade against order ``b``. Thus each order has just one fill-trade so far.
 
-4. The incoming sell order has a filled amount of 100 and has yet to fill the reamining amount of 50 from its initial amount of 150 in total.
+4. The incoming sell order has a filled amount of 100 and has yet to fill the remaining amount of 50 from its initial amount of 150 in total.
 
-5. Order ``i`` is matched against the remaining part of incoming sell, because their prices intersect. The amount of buying order ``i`` which is 200 completely annihilates the reamining sell amount of 50. The order ``i`` is filled partially by 50, but the rest of its volume, namely the remaining amount of 150 will stay in the orderbook. The selling order, however, is filled completely by this second match.
+5. Order ``i`` is matched against the remaining part of incoming sell, because their prices intersect. The amount of buying order ``i`` which is 200 completely annihilates the remaining sell amount of 50. The order ``i`` is filled partially by 50, but the rest of its volume, namely the remaining amount of 150 will stay in the orderbook. The selling order, however, is filled completely by this second match.
 
 6. A trade is generated for the order ``i`` against the incoming sell order. That trade partially fills order ``i``. And completes the filling of the sell order. Again, this is just one trade for a pair of matched orders.
 
