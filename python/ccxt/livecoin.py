@@ -15,11 +15,11 @@ import hashlib
 import math
 import json
 from ccxt.base.errors import ExchangeError
-from ccxt.base.errors import NotSupported
 from ccxt.base.errors import AuthenticationError
 from ccxt.base.errors import InsufficientFunds
 from ccxt.base.errors import InvalidOrder
 from ccxt.base.errors import OrderNotFound
+from ccxt.base.errors import NotSupported
 from ccxt.base.errors import DDoSProtection
 from ccxt.base.errors import ExchangeNotAvailable
 
@@ -244,8 +244,13 @@ class livecoin (Exchange):
         currencies = [
             {'id': 'USD', 'code': 'USD', 'name': 'US Dollar'},
             {'id': 'EUR', 'code': 'EUR', 'name': 'Euro'},
-            {'id': 'RUR', 'code': 'RUB', 'name': 'Russian ruble'},
+            # {'id': 'RUR', 'code': 'RUB', 'name': 'Russian ruble'},
         ]
+        currencies.append({
+            'id': 'RUR',
+            'code': self.common_currency_code('RUR'),
+            'name': 'Russian ruble',
+        })
         for i in range(0, len(currencies)):
             currency = currencies[i]
             code = currency['code']
@@ -473,10 +478,14 @@ class livecoin (Exchange):
         if type == 'limit':
             order['price'] = self.price_to_precision(symbol, price)
         response = getattr(self, method)(self.extend(order, params))
-        return {
+        result = {
             'info': response,
             'id': str(response['orderId']),
         }
+        success = self.safe_value(response, 'success')
+        if success:
+            result['status'] = 'open'
+        return result
 
     def cancel_order(self, id, symbol=None, params={}):
         if not symbol:
@@ -494,7 +503,10 @@ class livecoin (Exchange):
                 raise InvalidOrder(message)
             elif 'cancelled' in response:
                 if response['cancelled']:
-                    return response
+                    return {
+                        'status': 'canceled',
+                        'info': response,
+                    }
                 else:
                     raise OrderNotFound(message)
         raise ExchangeError(self.id + ' cancelOrder() failed: ' + self.json(response))
@@ -574,4 +586,7 @@ class livecoin (Exchange):
             # returns status code 200 even if success == False
             success = self.safe_value(response, 'success', True)
             if not success:
+                message = self.safe_string(response, 'message', '')
+                if message.find('Cannot find order') >= 0:
+                    raise OrderNotFound(self.id + ' ' + body)
                 raise ExchangeError(self.id + ' ' + body)

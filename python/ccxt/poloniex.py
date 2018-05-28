@@ -15,9 +15,9 @@ from ccxt.base.errors import OrderNotFound
 from ccxt.base.errors import OrderNotCached
 from ccxt.base.errors import CancelPending
 from ccxt.base.errors import DDoSProtection
-from ccxt.base.errors import RequestTimeout
 from ccxt.base.errors import ExchangeNotAvailable
 from ccxt.base.errors import InvalidNonce
+from ccxt.base.errors import RequestTimeout
 
 
 class poloniex (Exchange):
@@ -41,6 +41,7 @@ class poloniex (Exchange):
                 'fetchOpenOrders': True,
                 'fetchClosedOrders': 'emulated',
                 'fetchTickers': True,
+                'fetchTradingFees': True,
                 'fetchCurrencies': True,
                 'withdraw': True,
             },
@@ -242,7 +243,7 @@ class poloniex (Exchange):
             result[currency] = account
         return self.parse_balance(result)
 
-    def fetch_fees(self, params={}):
+    def fetch_trading_fees(self, params={}):
         self.load_markets()
         fees = self.privatePostReturnFeeInfo()
         return {
@@ -445,8 +446,8 @@ class poloniex (Exchange):
             request['start'] = int(since / 1000)
             request['end'] = self.seconds()
         # limit is disabled(does not really work as expected)
-        # if limit:
-        #     request['limit'] = int(limit)
+        if limit:
+            request['limit'] = int(limit)
         response = self.privatePostReturnTradeHistory(self.extend(request, params))
         result = []
         if market:

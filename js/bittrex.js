@@ -3,7 +3,7 @@
 //  ---------------------------------------------------------------------------
 
 const Exchange = require ('./base/Exchange');
-const { ExchangeError, AuthenticationError, InvalidOrder, InsufficientFunds, OrderNotFound, DDoSProtection, PermissionDenied } = require ('./base/errors');
+const { ExchangeError, ExchangeNotAvailable, AuthenticationError, InvalidOrder, InsufficientFunds, OrderNotFound, DDoSProtection, PermissionDenied } = require ('./base/errors');
 
 //  ---------------------------------------------------------------------------
 
@@ -515,12 +515,14 @@ module.exports = class bittrex extends Exchange {
         let symbol = undefined;
         if ('Exchange' in order) {
             let marketId = order['Exchange'];
-            if (marketId in this.markets_by_id)
-                symbol = this.markets_by_id[marketId]['symbol'];
-            else
+            if (marketId in this.markets_by_id) {
+                market = this.markets_by_id[marketId];
+                symbol = market['symbol'];
+            } else {
                 symbol = this.parseSymbol (marketId);
+            }
         } else {
-            if (market) {
+            if (typeof market !== 'undefined') {
                 symbol = market['symbol'];
             }
         }
@@ -529,7 +531,6 @@ module.exports = class bittrex extends Exchange {
             timestamp = this.parse8601 (order['Opened'] + '+00:00');
         if ('Created' in order)
             timestamp = this.parse8601 (order['Created'] + '+00:00');
-        let iso8601 = (typeof timestamp !== 'undefined') ? this.iso8601 (timestamp) : undefined;
         let lastTradeTimestamp = undefined;
         if (('TimeStamp' in order) && (typeof order['TimeStamp'] !== 'undefined'))
             lastTradeTimestamp = this.parse8601 (order['TimeStamp'] + '+00:00');
@@ -537,6 +538,7 @@ module.exports = class bittrex extends Exchange {
             lastTradeTimestamp = this.parse8601 (order['Closed'] + '+00:00');
         if (typeof timestamp === 'undefined')
             timestamp = lastTradeTimestamp;
+        let iso8601 = (typeof timestamp !== 'undefined') ? this.iso8601 (timestamp) : undefined;
         let fee = undefined;
         let commission = undefined;
         if ('Commission' in order) {
@@ -548,8 +550,16 @@ module.exports = class bittrex extends Exchange {
             fee = {
                 'cost': parseFloat (order[commission]),
             };
-            if (market)
+            if (typeof market !== 'undefined') {
                 fee['currency'] = market['quote'];
+            } else if (symbol) {
+                let currencyIds = symbol.split ('/');
+                let quoteCurrencyId = currencyIds[1];
+                if (quoteCurrencyId in this.currencies_by_id)
+                    fee['currency'] = this.currencies_by_id[quoteCurrencyId]['code'];
+                else
+                    fee['currency'] = this.commonCurrencyCode (quoteCurrencyId);
+            }
         }
         let price = this.safeFloat (order, 'Limit');
         let cost = this.safeFloat (order, 'Price');
@@ -716,8 +726,12 @@ module.exports = class bittrex extends Exchange {
                 const exceptions = this.exceptions;
                 if (message in exceptions)
                     throw new exceptions[message] (feedback);
-                if ((typeof message !== 'undefined') && (message.indexOf ('throttled. Try again') >= 0))
-                    throw new DDoSProtection (feedback);
+                if (typeof message !== 'undefined') {
+                    if (message.indexOf ('throttled. Try again') >= 0)
+                        throw new DDoSProtection (feedback);
+                    if (message.indexOf ('problem') >= 0)
+                        throw new ExchangeNotAvailable (feedback); // 'There was a problem processing your request.  If this problem persists, please contact...')
+                }
                 if (message === 'APIKEY_INVALID') {
                     if (this.options['hasAlreadyAuthenticatedSuccessfully']) {
                         throw new DDoSProtection (feedback);

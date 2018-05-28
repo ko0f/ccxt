@@ -232,8 +232,13 @@ module.exports = class livecoin extends Exchange {
         let currencies = [
             { 'id': 'USD', 'code': 'USD', 'name': 'US Dollar' },
             { 'id': 'EUR', 'code': 'EUR', 'name': 'Euro' },
-            { 'id': 'RUR', 'code': 'RUB', 'name': 'Russian ruble' },
+            // { 'id': 'RUR', 'code': 'RUB', 'name': 'Russian ruble' },
         ];
+        currencies.push ({
+            'id': 'RUR',
+            'code': this.commonCurrencyCode ('RUR'),
+            'name': 'Russian ruble',
+        });
         for (let i = 0; i < currencies.length; i++) {
             let currency = currencies[i];
             let code = currency['code'];
@@ -482,10 +487,15 @@ module.exports = class livecoin extends Exchange {
         if (type === 'limit')
             order['price'] = this.priceToPrecision (symbol, price);
         let response = await this[method] (this.extend (order, params));
-        return {
+        const result = {
             'info': response,
             'id': response['orderId'].toString (),
         };
+        const success = this.safeValue (response, 'success');
+        if (success) {
+            result['status'] = 'open';
+        }
+        return result;
     }
 
     async cancelOrder (id, symbol = undefined, params = {}) {
@@ -504,7 +514,10 @@ module.exports = class livecoin extends Exchange {
                 throw new InvalidOrder (message);
             } else if ('cancelled' in response) {
                 if (response['cancelled']) {
-                    return response;
+                    return {
+                        'status': 'canceled',
+                        'info': response,
+                    };
                 } else {
                     throw new OrderNotFound (message);
                 }
@@ -597,6 +610,10 @@ module.exports = class livecoin extends Exchange {
             // returns status code 200 even if success === false
             let success = this.safeValue (response, 'success', true);
             if (!success) {
+                const message = this.safeString (response, 'message', '');
+                if (message.indexOf ('Cannot find order') >= 0) {
+                    throw new OrderNotFound (this.id + ' ' + body);
+                }
                 throw new ExchangeError (this.id + ' ' + body);
             }
         }

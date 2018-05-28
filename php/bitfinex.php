@@ -249,13 +249,16 @@ class bitfinex extends Exchange {
                 'BCU' => 'CST_BCU',
                 'DAT' => 'DATA',
                 'DSH' => 'DASH', // Bitfinex names Dash as DSH, instead of DASH
+                'IOS' => 'IOST',
                 'IOT' => 'IOTA',
                 'MNA' => 'MANA',
                 'QSH' => 'QASH',
                 'QTM' => 'QTUM',
                 'SNG' => 'SNGLS',
                 'SPK' => 'SPANK',
+                'STJ' => 'STORJ',
                 'YYW' => 'YOYOW',
+                'USD' => 'USDT',
             ),
             'exceptions' => array (
                 'exact' => array (
@@ -556,10 +559,10 @@ class bitfinex extends Exchange {
         $orderType = $type;
         if (($type === 'limit') || ($type === 'market'))
             $orderType = 'exchange ' . $type;
-        // $amount = $this->amount_to_precision($symbol, $amount);
+        $amount = $this->amount_to_precision($symbol, $amount);
         $order = array (
             'symbol' => $this->market_id($symbol),
-            'amount' => (string) $amount,
+            'amount' => $amount,
             'side' => $side,
             'type' => $orderType,
             'ocoorder' => false,
@@ -569,8 +572,7 @@ class bitfinex extends Exchange {
         if ($type === 'market') {
             $order['price'] = (string) $this->nonce ();
         } else {
-            // $price = $this->price_to_precision($symbol, $price);
-            $order['price'] = (string) $price;
+            $order['price'] = $this->price_to_precision($symbol, $price);
         }
         $result = $this->privatePostOrderNew (array_merge ($order, $params));
         return $this->parse_order($result);
@@ -631,6 +633,9 @@ class bitfinex extends Exchange {
 
     public function fetch_open_orders ($symbol = null, $since = null, $limit = null, $params = array ()) {
         $this->load_markets();
+        if ($symbol !== null)
+            if (!(is_array ($this->markets) && array_key_exists ($symbol, $this->markets)))
+                throw new ExchangeError ($this->id . ' has no $symbol ' . $symbol);
         $response = $this->privatePostOrders ($params);
         $orders = $this->parse_orders($response, null, $since, $limit);
         if ($symbol)
@@ -670,10 +675,10 @@ class bitfinex extends Exchange {
         ];
     }
 
-    public function fetch_ohlcv ($symbol, $timeframe = '1m', $since = null, $limit = 100, $params = array ()) {
+    public function fetch_ohlcv ($symbol, $timeframe = '1m', $since = null, $limit = null, $params = array ()) {
         $this->load_markets();
-        if ($since === null)
-            $since = $this->milliseconds () - $this->parse_timeframe($timeframe) * $limit * 1000;
+        if ($limit === null)
+            $limit = 100;
         $market = $this->market ($symbol);
         $v2id = 't' . $market['id'];
         $request = array (
@@ -681,50 +686,71 @@ class bitfinex extends Exchange {
             'timeframe' => $this->timeframes[$timeframe],
             'sort' => 1,
             'limit' => $limit,
-            'start' => $since,
         );
+        if ($since !== null)
+            $request['start'] = $since;
         $response = $this->v2GetCandlesTradeTimeframeSymbolHist (array_merge ($request, $params));
         return $this->parse_ohlcvs($response, $market, $timeframe, $since, $limit);
     }
 
     public function get_currency_name ($currency) {
         $names = array (
+            'AGI' => 'agi',
             'AID' => 'aid',
+            'AIO' => 'aio',
+            'ANT' => 'ant',
             'AVT' => 'aventus', // #1811
             'BAT' => 'bat',
             'BCH' => 'bcash', // undocumented
+            'BCI' => 'bci',
+            'BFT' => 'bft',
             'BTC' => 'bitcoin',
             'BTG' => 'bgold',
+            'CFI' => 'cfi',
+            'DAI' => 'dai',
             'DASH' => 'dash',
             'DATA' => 'datacoin',
+            'DTH' => 'dth',
             'EDO' => 'eidoo', // #1811
             'ELF' => 'elf',
             'EOS' => 'eos',
             'ETC' => 'ethereumc',
             'ETH' => 'ethereum',
+            'ETP' => 'metaverse',
             'FUN' => 'fun',
             'GNT' => 'golem',
+            'IOST' => 'ios',
             'IOTA' => 'iota',
+            'LRC' => 'lrc',
             'LTC' => 'litecoin',
             'MANA' => 'mna',
-            'NEO' => 'neo', // #1811
+            'MIT' => 'mit',
+            'MTN' => 'mtn',
+            'NEO' => 'neo',
+            'ODE' => 'ode',
             'OMG' => 'omisego',
             'OMNI' => 'mastercoin',
             'QASH' => 'qash',
             'QTUM' => 'qtum', // #1811
             'RCN' => 'rcn',
+            'RDN' => 'rdn',
             'REP' => 'rep',
+            'REQ' => 'req',
             'RLC' => 'rlc',
             'SAN' => 'santiment',
             'SNGLS' => 'sng',
             'SNT' => 'status',
             'SPANK' => 'spk',
+            'STJ' => 'stj',
             'TNB' => 'tnb',
             'TRX' => 'trx',
             'USD' => 'wire',
             'USDT' => 'tetheruso', // undocumented
+            'WAX' => 'wax',
+            'XLM' => 'xlm',
             'XMR' => 'monero',
             'XRP' => 'ripple',
+            'XVG' => 'xvg',
             'YOYOW' => 'yoyow',
             'ZEC' => 'zcash',
             'ZRX' => 'zrx',

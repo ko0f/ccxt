@@ -15,6 +15,7 @@ import hashlib
 import math
 import json
 from ccxt.base.errors import ExchangeError
+from ccxt.base.errors import InsufficientFunds
 from ccxt.base.errors import InvalidOrder
 from ccxt.base.errors import OrderNotFound
 from ccxt.base.errors import ExchangeNotAvailable
@@ -60,6 +61,7 @@ class huobipro (Exchange):
                 'logo': 'https://user-images.githubusercontent.com/1294454/27766569-15aa7b9a-5edd-11e7-9e7f-44791f4ee49c.jpg',
                 'api': 'https://api.huobipro.com',
                 'www': 'https://www.huobipro.com',
+                'referral': 'https://www.huobi.br.com/en-us/topic/invited/?invite_code=rwrd3',
                 'doc': 'https://github.com/huobiapi/API_Docs/wiki/REST_api_reference',
                 'fees': 'https://www.huobipro.com/about/fee/',
             },
@@ -124,13 +126,17 @@ class huobipro (Exchange):
                 },
             },
             'exceptions': {
+                'account-frozen-balance-insufficient-error': InsufficientFunds,  # {"status":"error","err-code":"account-frozen-balance-insufficient-error","err-msg":"trade account balance is not enough, left: `0.0027`","data":null}
                 'order-limitorder-amount-min-error': InvalidOrder,  # limit order amount error, min: `0.001`
                 'order-orderstate-error': OrderNotFound,  # canceling an already canceled order
                 'order-queryorder-invalid': OrderNotFound,  # querying a non-existent order
                 'order-update-error': ExchangeNotAvailable,  # undocumented error
             },
             'options': {
+                'createMarketBuyOrderRequiresPrice': True,
                 'fetchMarketsMethod': 'publicGetCommonSymbols',
+                'fetchBalanceMethod': 'privateGetAccountAccountsIdBalance',
+                'createOrderMethod': 'privatePostOrderOrdersPlace',
                 'language': 'en-US',
             },
         })
@@ -142,7 +148,7 @@ class huobipro (Exchange):
             keys = list(limits.keys())
             for i in range(0, len(keys)):
                 symbol = keys[i]
-                self.markets[symbol] = self.extend(self.markets[symbol], {
+                self.markets[symbol] = self.deep_extend(self.markets[symbol], {
                     'limits': limits[symbol],
                 })
         return self.markets
@@ -460,7 +466,8 @@ class huobipro (Exchange):
     async def fetch_balance(self, params={}):
         await self.load_markets()
         await self.load_accounts()
-        response = await self.privateGetAccountAccountsIdBalance(self.extend({
+        method = self.options['fetchBalanceMethod']
+        response = await getattr(self, method)(self.extend({
             'id': self.accounts[0]['id'],
         }, params))
         balances = response['data']['list']
@@ -490,7 +497,7 @@ class huobipro (Exchange):
         response = await self.privateGetOrderOrders(self.extend({
             'symbol': market['id'],
             'states': states,
-        }))
+        }, params))
         return self.parse_orders(response['data'], market, since, limit)
 
     async def fetch_orders(self, symbol=None, since=None, limit=None, params={}):
@@ -578,9 +585,16 @@ class huobipro (Exchange):
             'symbol': market['id'],
             'type': side + '-' + type,
         }
+        if self.options['createMarketBuyOrderRequiresPrice']:
+            if (type == 'market') and(side == 'buy'):
+                if price is None:
+                    raise InvalidOrder(self.id + " market buy order requires price argument to calculate cost(total amount of quote currency to spend for buying, amount * price). To switch off self warning exception and specify cost in the amount argument, set .options['createMarketBuyOrderRequiresPrice'] = False. Make sure you know what you're doing.")
+                else:
+                    order['amount'] = self.price_to_precision(symbol, float(amount) * float(price))
         if type == 'limit':
             order['price'] = self.price_to_precision(symbol, price)
-        response = await self.privatePostOrderOrdersPlace(self.extend(order, params))
+        method = self.options['createOrderMethod']
+        response = await getattr(self, method)(self.extend(order, params))
         timestamp = self.milliseconds()
         return {
             'info': response,
@@ -645,9 +659,9 @@ class huobipro (Exchange):
         request = {
             'address': address,  # only supports existing addresses in your withdraw address list
             'amount': amount,
-            'currency': currency['id'],
+            'currency': currency['id'].lower(),
         }
-        if tag:
+        if tag is not None:
             request['addr-tag'] = tag  # only for XRP?
         response = await self.privatePostDwWithdrawApiCreate(self.extend(request, params))
         id = None

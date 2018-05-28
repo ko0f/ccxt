@@ -12,6 +12,7 @@ from ccxt.base.errors import InsufficientFunds
 from ccxt.base.errors import InvalidOrder
 from ccxt.base.errors import OrderNotFound
 from ccxt.base.errors import DDoSProtection
+from ccxt.base.errors import ExchangeNotAvailable
 from ccxt.base.errors import InvalidNonce
 
 
@@ -66,6 +67,7 @@ class binance (Exchange):
                     'v1': 'https://api.binance.com/api/v1',
                 },
                 'www': 'https://www.binance.com',
+                'referral': 'https://www.binance.com/?ref=10205187',
                 'doc': 'https://github.com/binance-exchange/binance-official-api-docs/blob/master/rest-api.md',
                 'fees': [
                     'https://binance.zendesk.com/hc/en-us/articles/115000429332',
@@ -265,6 +267,8 @@ class binance (Exchange):
             },
             # exchange-specific options
             'options': {
+                'defaultTimeInForce': 'GTC',  # 'GTC' = Good To Cancel(default), 'IOC' = Immediate Or Cancel
+                'defaultLimitOrderType': 'limit',  # or 'limit_maker'
                 'hasAlreadyAuthenticatedSuccessfully': False,
                 'warnOnFetchOpenOrdersWithoutSymbol': True,
                 'recvWindow': 5 * 1000,  # 5 sec, binance default
@@ -272,6 +276,7 @@ class binance (Exchange):
                 'adjustForTimeDifference': False,  # controls the adjustment logic upon instantiation
             },
             'exceptions': {
+                '-1000': ExchangeNotAvailable,  # {"code":-1000,"msg":"An unknown error occured while processing the request."}
                 '-1013': InvalidOrder,  # createOrder -> 'invalid quantity'/'invalid price'/MIN_NOTIONAL
                 '-1021': InvalidNonce,  # 'your time is ahead of server'
                 '-1100': InvalidOrder,  # createOrder(symbol, 1, asdf) -> 'Illegal characters found in parameter 'price'
@@ -454,7 +459,7 @@ class binance (Exchange):
             tickers.append(self.parse_ticker(rawTickers[i]))
         return self.filter_by_array(tickers, 'symbol', symbols)
 
-    async def fetch_bid_asks(self, symbols=None, params={}):
+    async def fetch_bids_asks(self, symbols=None, params={}):
         await self.load_markets()
         rawTickers = await self.publicGetTickerBookTicker(params)
         return self.parse_tickers(rawTickers, symbols)
@@ -622,10 +627,13 @@ class binance (Exchange):
             'side': side.upper(),
         }
         if type == 'limit':
+            order['type'] = self.options['defaultLimitOrderType'].upper()
             order = self.extend(order, {
                 'price': self.price_to_precision(symbol, price),
-                'timeInForce': 'GTC',  # 'GTC' = Good To Cancel(default), 'IOC' = Immediate Or Cancel
+                'timeInForce': self.options['defaultTimeInForce'],  # 'GTC' = Good To Cancel(default), 'IOC' = Immediate Or Cancel
             })
+        elif type == 'limit_maker':
+            order['price'] = self.price_to_precision(symbol, price)
         response = await getattr(self, method)(self.extend(order, params))
         return self.parse_order(response)
 

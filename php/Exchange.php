@@ -30,7 +30,7 @@ SOFTWARE.
 
 namespace ccxt;
 
-$version = '1.13.83';
+$version = '1.14.76';
 
 // rounding mode
 const TRUNCATE = 0;
@@ -99,6 +99,7 @@ abstract class Exchange {
         'coinone',
         'coinsecure',
         'coinspot',
+        'cointiger',
         'coolcoin',
         'cryptopia',
         'dsx',
@@ -184,7 +185,7 @@ abstract class Exchange {
     }
 
     public static function safe_value ($object, $key, $default_value = null) {
-        return (is_array ($object) && array_key_exists ($key, $object) && $object[$key]) ? $object[$key] : $default_value;
+        return (is_array ($object) && array_key_exists ($key, $object)) ? $object[$key] : $default_value;
     }
 
     public static function truncate ($number, $precision = 0) {
@@ -507,8 +508,8 @@ abstract class Exchange {
         return $time;
     }
 
-    public static function ymd ($timestamp, $infix = ' ') {
-        return gmdate ('Y-m-d', (int) round ($timestamp / 1000));
+    public static function ymd ($timestamp, $infix = '-') {
+        return gmdate ('Y' . $infix . 'm' . $infix . 'd', (int) round ($timestamp / 1000));
     }
 
     public static function ymdhms ($timestamp, $infix = ' ') {
@@ -874,7 +875,6 @@ abstract class Exchange {
         } else if ($method == 'PUT') {
 
             curl_setopt ($this->curl, CURLOPT_CUSTOMREQUEST, "PUT");
-            curl_setopt ($this->curl, CURLOPT_PUT, true);
             curl_setopt ($this->curl, CURLOPT_POSTFIELDS, $body);
 
             $headers[] = 'X-HTTP-Method-Override: PUT';
@@ -1083,7 +1083,12 @@ abstract class Exchange {
             $base_currencies = array_map (function ($market) {
                 return array (
                     'id' => array_key_exists ('baseId', $market) ? $market['baseId'] : $market['base'],
+                    'numericId' => array_key_exists ('baseNumericId', $market) ? $market['baseNumericId'] : null,
                     'code' => $market['base'],
+                    'precision' => array_key_exists ('precision', $market) ? (
+                        array_key_exists ('base', $market['precision']) ? $market['precision']['base'] : (
+                            array_key_exists ('amount', $market['precision']) ? $market['precision']['amount'] : null
+                        )) : 8,
                 );
             }, array_filter ($values, function ($market) {
                 return array_key_exists ('base', $market);
@@ -1091,7 +1096,12 @@ abstract class Exchange {
             $quote_currencies = array_map (function ($market) {
                 return array (
                     'id' => array_key_exists ('quoteId', $market) ? $market['quoteId'] : $market['quote'],
+                    'numericId' => array_key_exists ('quoteNumericId', $market) ? $market['quoteNumericId'] : null,
                     'code' => $market['quote'],
+                    'precision' => array_key_exists ('precision', $market) ? (
+                        array_key_exists ('quote', $market['precision']) ? $market['precision']['quote'] : (
+                            array_key_exists ('price', $market['precision']) ? $market['precision']['price'] : null
+                        )) : 8,
                 );
             }, array_filter ($values, function ($market) {
                 return array_key_exists ('quote', $market);
@@ -1759,7 +1769,7 @@ abstract class Exchange {
             return call_user_func_array ($this->$function, $params);
         else {
             /* handle errors */
-            throw new ExchangeError ($function . ' not found');
+            throw new ExchangeError ($function . ' method not found, try underscore_notation instead of camelCase for the method being called');
         }
     }
 

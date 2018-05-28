@@ -28,6 +28,7 @@ class poloniex extends Exchange {
                 'fetchOpenOrders' => true,
                 'fetchClosedOrders' => 'emulated',
                 'fetchTickers' => true,
+                'fetchTradingFees' => true,
                 'fetchCurrencies' => true,
                 'withdraw' => true,
             ),
@@ -238,7 +239,7 @@ class poloniex extends Exchange {
         return $this->parse_balance($result);
     }
 
-    public function fetch_fees ($params = array ()) {
+    public function fetch_trading_fees ($params = array ()) {
         $this->load_markets();
         $fees = $this->privatePostReturnFeeInfo ();
         return array (
@@ -459,8 +460,8 @@ class poloniex extends Exchange {
             $request['end'] = $this->seconds ();
         }
         // $limit is disabled (does not really work as expected)
-        // if ($limit)
-        //     $request['limit'] = intval ($limit);
+        if ($limit)
+            $request['limit'] = intval ($limit);
         $response = $this->privatePostReturnTradeHistory (array_merge ($request, $params));
         $result = array ();
         if ($market) {

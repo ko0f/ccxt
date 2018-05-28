@@ -27,6 +27,7 @@ module.exports = class poloniex extends Exchange {
                 'fetchOpenOrders': true,
                 'fetchClosedOrders': 'emulated',
                 'fetchTickers': true,
+                'fetchTradingFees': true,
                 'fetchCurrencies': true,
                 'withdraw': true,
             },
@@ -237,7 +238,7 @@ module.exports = class poloniex extends Exchange {
         return this.parseBalance (result);
     }
 
-    async fetchFees (params = {}) {
+    async fetchTradingFees (params = {}) {
         await this.loadMarkets ();
         let fees = await this.privatePostReturnFeeInfo ();
         return {
@@ -458,8 +459,8 @@ module.exports = class poloniex extends Exchange {
             request['end'] = this.seconds ();
         }
         // limit is disabled (does not really work as expected)
-        // if (limit)
-        //     request['limit'] = parseInt (limit);
+        if (limit)
+            request['limit'] = parseInt (limit);
         let response = await this.privatePostReturnTradeHistory (this.extend (request, params));
         let result = [];
         if (market) {

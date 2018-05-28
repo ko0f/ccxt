@@ -249,13 +249,16 @@ module.exports = class bitfinex extends Exchange {
                 'BCU': 'CST_BCU',
                 'DAT': 'DATA',
                 'DSH': 'DASH', // Bitfinex names Dash as DSH, instead of DASH
+                'IOS': 'IOST',
                 'IOT': 'IOTA',
                 'MNA': 'MANA',
                 'QSH': 'QASH',
                 'QTM': 'QTUM',
                 'SNG': 'SNGLS',
                 'SPK': 'SPANK',
+                'STJ': 'STORJ',
                 'YYW': 'YOYOW',
+                'USD': 'USDT',
             },
             'exceptions': {
                 'exact': {
@@ -556,10 +559,10 @@ module.exports = class bitfinex extends Exchange {
         let orderType = type;
         if ((type === 'limit') || (type === 'market'))
             orderType = 'exchange ' + type;
-        // amount = this.amountToPrecision (symbol, amount);
+        amount = this.amountToPrecision (symbol, amount);
         let order = {
             'symbol': this.marketId (symbol),
-            'amount': amount.toString (),
+            'amount': amount,
             'side': side,
             'type': orderType,
             'ocoorder': false,
@@ -569,8 +572,7 @@ module.exports = class bitfinex extends Exchange {
         if (type === 'market') {
             order['price'] = this.nonce ().toString ();
         } else {
-            // price = this.priceToPrecision (symbol, price);
-            order['price'] = price.toString ();
+            order['price'] = this.priceToPrecision (symbol, price);
         }
         let result = await this.privatePostOrderNew (this.extend (order, params));
         return this.parseOrder (result);
@@ -631,6 +633,9 @@ module.exports = class bitfinex extends Exchange {
 
     async fetchOpenOrders (symbol = undefined, since = undefined, limit = undefined, params = {}) {
         await this.loadMarkets ();
+        if (typeof symbol !== 'undefined')
+            if (!(symbol in this.markets))
+                throw new ExchangeError (this.id + ' has no symbol ' + symbol);
         let response = await this.privatePostOrders (params);
         let orders = this.parseOrders (response, undefined, since, limit);
         if (symbol)
@@ -670,10 +675,10 @@ module.exports = class bitfinex extends Exchange {
         ];
     }
 
-    async fetchOHLCV (symbol, timeframe = '1m', since = undefined, limit = 100, params = {}) {
+    async fetchOHLCV (symbol, timeframe = '1m', since = undefined, limit = undefined, params = {}) {
         await this.loadMarkets ();
-        if (typeof since === 'undefined')
-            since = this.milliseconds () - this.parseTimeframe (timeframe) * limit * 1000;
+        if (typeof limit === 'undefined')
+            limit = 100;
         let market = this.market (symbol);
         let v2id = 't' + market['id'];
         let request = {
@@ -681,50 +686,71 @@ module.exports = class bitfinex extends Exchange {
             'timeframe': this.timeframes[timeframe],
             'sort': 1,
             'limit': limit,
-            'start': since,
         };
+        if (typeof since !== 'undefined')
+            request['start'] = since;
         let response = await this.v2GetCandlesTradeTimeframeSymbolHist (this.extend (request, params));
         return this.parseOHLCVs (response, market, timeframe, since, limit);
     }
 
     getCurrencyName (currency) {
         const names = {
+            'AGI': 'agi',
             'AID': 'aid',
+            'AIO': 'aio',
+            'ANT': 'ant',
             'AVT': 'aventus', // #1811
             'BAT': 'bat',
             'BCH': 'bcash', // undocumented
+            'BCI': 'bci',
+            'BFT': 'bft',
             'BTC': 'bitcoin',
             'BTG': 'bgold',
+            'CFI': 'cfi',
+            'DAI': 'dai',
             'DASH': 'dash',
             'DATA': 'datacoin',
+            'DTH': 'dth',
             'EDO': 'eidoo', // #1811
             'ELF': 'elf',
             'EOS': 'eos',
             'ETC': 'ethereumc',
             'ETH': 'ethereum',
+            'ETP': 'metaverse',
             'FUN': 'fun',
             'GNT': 'golem',
+            'IOST': 'ios',
             'IOTA': 'iota',
+            'LRC': 'lrc',
             'LTC': 'litecoin',
             'MANA': 'mna',
-            'NEO': 'neo', // #1811
+            'MIT': 'mit',
+            'MTN': 'mtn',
+            'NEO': 'neo',
+            'ODE': 'ode',
             'OMG': 'omisego',
             'OMNI': 'mastercoin',
             'QASH': 'qash',
             'QTUM': 'qtum', // #1811
             'RCN': 'rcn',
+            'RDN': 'rdn',
             'REP': 'rep',
+            'REQ': 'req',
             'RLC': 'rlc',
             'SAN': 'santiment',
             'SNGLS': 'sng',
             'SNT': 'status',
             'SPANK': 'spk',
+            'STJ': 'stj',
             'TNB': 'tnb',
             'TRX': 'trx',
             'USD': 'wire',
             'USDT': 'tetheruso', // undocumented
+            'WAX': 'wax',
+            'XLM': 'xlm',
             'XMR': 'monero',
             'XRP': 'ripple',
+            'XVG': 'xvg',
             'YOYOW': 'yoyow',
             'ZEC': 'zcash',
             'ZRX': 'zrx',

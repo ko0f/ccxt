@@ -3,7 +3,7 @@
 // ---------------------------------------------------------------------------
 
 const hitbtc = require ('./hitbtc');
-const { ExchangeError, OrderNotFound, InsufficientFunds, InvalidOrder } = require ('./base/errors');
+const { ExchangeError, ExchangeNotAvailable, OrderNotFound, InsufficientFunds, InvalidOrder } = require ('./base/errors');
 
 // ---------------------------------------------------------------------------
 
@@ -46,6 +46,7 @@ module.exports = class hitbtc2 extends hitbtc {
                 'logo': 'https://user-images.githubusercontent.com/1294454/27766555-8eaec20e-5edc-11e7-9c5b-6dc69fc42f5e.jpg',
                 'api': 'https://api.hitbtc.com',
                 'www': 'https://hitbtc.com',
+                'referral': 'https://hitbtc.com/?ref_id=5a5d39a65d466',
                 'doc': 'https://api.hitbtc.com',
                 'fees': [
                     'https://hitbtc.com/fees-and-limits',
@@ -529,6 +530,16 @@ module.exports = class hitbtc2 extends hitbtc {
                     },
                 },
             },
+            'options': {
+                'defaultTimeInForce': 'FOK',
+            },
+            'exceptions': {
+                '2010': InvalidOrder, // "Quantity not a valid number"
+                '2011': InvalidOrder, // "Quantity too low"
+                '2020': InvalidOrder, // "Price not a valid number"
+                '20002': OrderNotFound, // canceling non-existent order
+                '20001': InsufficientFunds,
+            },
         });
     }
 
@@ -551,7 +562,9 @@ module.exports = class hitbtc2 extends hitbtc {
             let step = this.safeFloat (market, 'tickSize');
             let precision = {
                 'price': this.precisionFromString (market['tickSize']),
-                'amount': this.precisionFromString (market['quantityIncrement']),
+                // FIXME: for lots > 1 the following line returns 0
+                // 'amount': this.precisionFromString (market['quantityIncrement']),
+                'amount': -1 * Math.log10 (lot),
             };
             let taker = this.safeFloat (market, 'takeLiquidityRate');
             let maker = this.safeFloat (market, 'provideLiquidityRate');
@@ -564,8 +577,6 @@ module.exports = class hitbtc2 extends hitbtc {
                 'baseId': baseId,
                 'quoteId': quoteId,
                 'active': true,
-                'lot': lot,
-                'step': step,
                 'taker': taker,
                 'maker': maker,
                 'precision': precision,
@@ -847,7 +858,7 @@ module.exports = class hitbtc2 extends hitbtc {
         if (type === 'limit') {
             request['price'] = this.priceToPrecision (symbol, price);
         } else {
-            request['timeInForce'] = 'FOK';
+            request['timeInForce'] = this.options['defaultTimeInForce'];
         }
         let response = await this.privatePostOrder (this.extend (request, params));
         let order = this.parseOrder (response);
@@ -1059,7 +1070,7 @@ module.exports = class hitbtc2 extends hitbtc {
         this.checkAddress (address);
         let tag = this.safeString (response, 'paymentId');
         return {
-            'currency': currency,
+            'currency': currency.code,
             'address': address,
             'tag': tag,
             'status': 'ok',
@@ -1113,25 +1124,29 @@ module.exports = class hitbtc2 extends hitbtc {
     }
 
     handleErrors (code, reason, url, method, headers, body) {
-        if (code === 400) {
+        if (typeof body !== 'string')
+            return;
+        if (code >= 400) {
+            const feedback = this.id + ' ' + body;
+            // {"code":504,"message":"Gateway Timeout","description":""}
+            if ((code === 503) || (code === 504))
+                throw new ExchangeNotAvailable (feedback);
+            // {"error":{"code":20002,"message":"Order not found","description":""}}
             if (body[0] === '{') {
-                let response = JSON.parse (body);
+                const response = JSON.parse (body);
                 if ('error' in response) {
-                    if ('message' in response['error']) {
-                        let message = response['error']['message'];
-                        if (message === 'Order not found') {
-                            throw new OrderNotFound (this.id + ' order not found in active orders');
-                        } else if (message === 'Quantity not a valid number') {
-                            throw new InvalidOrder (this.id + ' ' + body);
-                        } else if (message === 'Insufficient funds') {
-                            throw new InsufficientFunds (this.id + ' ' + body);
-                        } else if (message === 'Duplicate clientOrderId') {
-                            throw new InvalidOrder (this.id + ' ' + body);
-                        }
+                    const code = this.safeString (response['error'], 'code');
+                    const exceptions = this.exceptions;
+                    if (code in exceptions) {
+                        throw new exceptions[code] (feedback);
+                    }
+                    const message = this.safeString (response['error'], 'message');
+                    if (message === 'Duplicate clientOrderId') {
+                        throw new InvalidOrder (feedback);
                     }
                 }
             }
-            throw new ExchangeError (this.id + ' ' + body);
+            throw new ExchangeError (feedback);
         }
     }
 };

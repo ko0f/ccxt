@@ -21,6 +21,7 @@ from ccxt.base.errors import InsufficientFunds
 from ccxt.base.errors import InvalidOrder
 from ccxt.base.errors import OrderNotFound
 from ccxt.base.errors import DDoSProtection
+from ccxt.base.errors import ExchangeNotAvailable
 
 
 class bittrex (Exchange):
@@ -500,18 +501,18 @@ class bittrex (Exchange):
         if 'Exchange' in order:
             marketId = order['Exchange']
             if marketId in self.markets_by_id:
-                symbol = self.markets_by_id[marketId]['symbol']
+                market = self.markets_by_id[marketId]
+                symbol = market['symbol']
             else:
                 symbol = self.parse_symbol(marketId)
         else:
-            if market:
+            if market is not None:
                 symbol = market['symbol']
         timestamp = None
         if 'Opened' in order:
             timestamp = self.parse8601(order['Opened'] + '+00:00')
         if 'Created' in order:
             timestamp = self.parse8601(order['Created'] + '+00:00')
-        iso8601 = self.iso8601(timestamp) if (timestamp is not None) else None
         lastTradeTimestamp = None
         if ('TimeStamp' in list(order.keys())) and(order['TimeStamp'] is not None):
             lastTradeTimestamp = self.parse8601(order['TimeStamp'] + '+00:00')
@@ -519,6 +520,7 @@ class bittrex (Exchange):
             lastTradeTimestamp = self.parse8601(order['Closed'] + '+00:00')
         if timestamp is None:
             timestamp = lastTradeTimestamp
+        iso8601 = self.iso8601(timestamp) if (timestamp is not None) else None
         fee = None
         commission = None
         if 'Commission' in order:
@@ -529,8 +531,15 @@ class bittrex (Exchange):
             fee = {
                 'cost': float(order[commission]),
             }
-            if market:
+            if market is not None:
                 fee['currency'] = market['quote']
+            elif symbol:
+                currencyIds = symbol.split('/')
+                quoteCurrencyId = currencyIds[1]
+                if quoteCurrencyId in self.currencies_by_id:
+                    fee['currency'] = self.currencies_by_id[quoteCurrencyId]['code']
+                else:
+                    fee['currency'] = self.common_currency_code(quoteCurrencyId)
         price = self.safe_float(order, 'Limit')
         cost = self.safe_float(order, 'Price')
         amount = self.safe_float(order, 'Quantity')
@@ -682,8 +691,11 @@ class bittrex (Exchange):
                 exceptions = self.exceptions
                 if message in exceptions:
                     raise exceptions[message](feedback)
-                if (message is not None) and(message.find('throttled. Try again') >= 0):
-                    raise DDoSProtection(feedback)
+                if message is not None:
+                    if message.find('throttled. Try again') >= 0:
+                        raise DDoSProtection(feedback)
+                    if message.find('problem') >= 0:
+                        raise ExchangeNotAvailable(feedback)  # 'There was a problem processing your request.  If self problem persists, please contact...')
                 if message == 'APIKEY_INVALID':
                     if self.options['hasAlreadyAuthenticatedSuccessfully']:
                         raise DDoSProtection(feedback)

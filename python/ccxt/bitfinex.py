@@ -9,11 +9,11 @@ import hashlib
 import math
 import json
 from ccxt.base.errors import ExchangeError
-from ccxt.base.errors import NotSupported
 from ccxt.base.errors import AuthenticationError
 from ccxt.base.errors import InsufficientFunds
 from ccxt.base.errors import InvalidOrder
 from ccxt.base.errors import OrderNotFound
+from ccxt.base.errors import NotSupported
 from ccxt.base.errors import DDoSProtection
 from ccxt.base.errors import ExchangeNotAvailable
 from ccxt.base.errors import InvalidNonce
@@ -264,13 +264,16 @@ class bitfinex (Exchange):
                 'BCU': 'CST_BCU',
                 'DAT': 'DATA',
                 'DSH': 'DASH',  # Bitfinex names Dash as DSH, instead of DASH
+                'IOS': 'IOST',
                 'IOT': 'IOTA',
                 'MNA': 'MANA',
                 'QSH': 'QASH',
                 'QTM': 'QTUM',
                 'SNG': 'SNGLS',
                 'SPK': 'SPANK',
+                'STJ': 'STORJ',
                 'YYW': 'YOYOW',
+                'USD': 'USDT',
             },
             'exceptions': {
                 'exact': {
@@ -543,10 +546,10 @@ class bitfinex (Exchange):
         orderType = type
         if (type == 'limit') or (type == 'market'):
             orderType = 'exchange ' + type
-        # amount = self.amount_to_precision(symbol, amount)
+        amount = self.amount_to_precision(symbol, amount)
         order = {
             'symbol': self.market_id(symbol),
-            'amount': str(amount),
+            'amount': amount,
             'side': side,
             'type': orderType,
             'ocoorder': False,
@@ -556,8 +559,7 @@ class bitfinex (Exchange):
         if type == 'market':
             order['price'] = str(self.nonce())
         else:
-            # price = self.price_to_precision(symbol, price)
-            order['price'] = str(price)
+            order['price'] = self.price_to_precision(symbol, price)
         result = self.privatePostOrderNew(self.extend(order, params))
         return self.parse_order(result)
 
@@ -610,6 +612,9 @@ class bitfinex (Exchange):
 
     def fetch_open_orders(self, symbol=None, since=None, limit=None, params={}):
         self.load_markets()
+        if symbol is not None:
+            if not(symbol in list(self.markets.keys())):
+                raise ExchangeError(self.id + ' has no symbol ' + symbol)
         response = self.privatePostOrders(params)
         orders = self.parse_orders(response, None, since, limit)
         if symbol:
@@ -645,10 +650,10 @@ class bitfinex (Exchange):
             ohlcv[5],
         ]
 
-    def fetch_ohlcv(self, symbol, timeframe='1m', since=None, limit=100, params={}):
+    def fetch_ohlcv(self, symbol, timeframe='1m', since=None, limit=None, params={}):
         self.load_markets()
-        if since is None:
-            since = self.milliseconds() - self.parse_timeframe(timeframe) * limit * 1000
+        if limit is None:
+            limit = 100
         market = self.market(symbol)
         v2id = 't' + market['id']
         request = {
@@ -656,49 +661,70 @@ class bitfinex (Exchange):
             'timeframe': self.timeframes[timeframe],
             'sort': 1,
             'limit': limit,
-            'start': since,
         }
+        if since is not None:
+            request['start'] = since
         response = self.v2GetCandlesTradeTimeframeSymbolHist(self.extend(request, params))
         return self.parse_ohlcvs(response, market, timeframe, since, limit)
 
     def get_currency_name(self, currency):
         names = {
+            'AGI': 'agi',
             'AID': 'aid',
+            'AIO': 'aio',
+            'ANT': 'ant',
             'AVT': 'aventus',  # #1811
             'BAT': 'bat',
             'BCH': 'bcash',  # undocumented
+            'BCI': 'bci',
+            'BFT': 'bft',
             'BTC': 'bitcoin',
             'BTG': 'bgold',
+            'CFI': 'cfi',
+            'DAI': 'dai',
             'DASH': 'dash',
             'DATA': 'datacoin',
+            'DTH': 'dth',
             'EDO': 'eidoo',  # #1811
             'ELF': 'elf',
             'EOS': 'eos',
             'ETC': 'ethereumc',
             'ETH': 'ethereum',
+            'ETP': 'metaverse',
             'FUN': 'fun',
             'GNT': 'golem',
+            'IOST': 'ios',
             'IOTA': 'iota',
+            'LRC': 'lrc',
             'LTC': 'litecoin',
             'MANA': 'mna',
-            'NEO': 'neo',  # #1811
+            'MIT': 'mit',
+            'MTN': 'mtn',
+            'NEO': 'neo',
+            'ODE': 'ode',
             'OMG': 'omisego',
             'OMNI': 'mastercoin',
             'QASH': 'qash',
             'QTUM': 'qtum',  # #1811
             'RCN': 'rcn',
+            'RDN': 'rdn',
             'REP': 'rep',
+            'REQ': 'req',
             'RLC': 'rlc',
             'SAN': 'santiment',
             'SNGLS': 'sng',
             'SNT': 'status',
             'SPANK': 'spk',
+            'STJ': 'stj',
             'TNB': 'tnb',
             'TRX': 'trx',
             'USD': 'wire',
             'USDT': 'tetheruso',  # undocumented
+            'WAX': 'wax',
+            'XLM': 'xlm',
             'XMR': 'monero',
             'XRP': 'ripple',
+            'XVG': 'xvg',
             'YOYOW': 'yoyow',
             'ZEC': 'zcash',
             'ZRX': 'zrx',
