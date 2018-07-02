@@ -12,7 +12,7 @@ module.exports = class hitbtc2 extends hitbtc {
         return this.deepExtend (super.describe (), {
             'id': 'hitbtc2',
             'name': 'HitBTC v2',
-            'countries': 'HK',
+            'countries': [ 'HK' ],
             'rateLimit': 1500,
             'version': '2',
             'has': {
@@ -614,10 +614,9 @@ module.exports = class hitbtc2 extends hitbtc {
             let payout = this.safeValue (currency, 'payoutEnabled');
             let transfer = this.safeValue (currency, 'transferEnabled');
             let active = payin && payout && transfer;
-            let status = 'ok';
             if ('disabled' in currency)
                 if (currency['disabled'])
-                    status = 'disabled';
+                    active = false;
             let type = 'fiat';
             if (('crypto' in currency) && currency['crypto'])
                 type = 'crypto';
@@ -631,7 +630,6 @@ module.exports = class hitbtc2 extends hitbtc {
                 'info': currency,
                 'name': currency['fullName'],
                 'active': active,
-                'status': status,
                 'fee': this.safeFloat (currency, 'payoutFee'), // todo: redesign
                 'precision': precision,
                 'limits': {
@@ -890,9 +888,10 @@ module.exports = class hitbtc2 extends hitbtc {
 
     async cancelOrder (id, symbol = undefined, params = {}) {
         await this.loadMarkets ();
-        return await this.privateDeleteOrderClientOrderId (this.extend ({
+        const response = await this.privateDeleteOrderClientOrderId (this.extend ({
             'clientOrderId': id,
         }, params));
+        return this.parseOrder (response);
     }
 
     parseOrder (order, market = undefined) {
@@ -1026,9 +1025,9 @@ module.exports = class hitbtc2 extends hitbtc {
     }
 
     async fetchOrderTrades (id, symbol = undefined, since = undefined, limit = undefined, params = {}) {
-        // The id needed here is the exchange's id, and not the clientOrderID, which is
-        // the id that is stored in the unified api order id. In order the get the exchange's id,
-        // you need to grab it from order['info']['id']
+        // The id needed here is the exchange's id, and not the clientOrderID,
+        // which is the id that is stored in the unified order id
+        // To get the exchange's id you need to grab it from order['info']['id']
         await this.loadMarkets ();
         let market = undefined;
         if (typeof symbol !== 'undefined')
@@ -1055,7 +1054,6 @@ module.exports = class hitbtc2 extends hitbtc {
             'currency': currency,
             'address': address,
             'tag': tag,
-            'status': 'ok',
             'info': response,
         };
     }
@@ -1070,10 +1068,9 @@ module.exports = class hitbtc2 extends hitbtc {
         this.checkAddress (address);
         let tag = this.safeString (response, 'paymentId');
         return {
-            'currency': currency.code,
+            'currency': currency['code'],
             'address': address,
             'tag': tag,
-            'status': 'ok',
             'info': response,
         };
     }

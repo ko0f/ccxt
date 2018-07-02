@@ -14,7 +14,7 @@ module.exports = class coinmarketcap extends Exchange {
             'name': 'CoinMarketCap',
             'rateLimit': 10000,
             'version': 'v1',
-            'countries': 'US',
+            'countries': [ 'US' ],
             'has': {
                 'CORS': true,
                 'privateAPI': false,
@@ -99,7 +99,7 @@ module.exports = class coinmarketcap extends Exchange {
             'BlazeCoin': 'BlazeCoin',
             'BlockCAT': 'BlockCAT',
             'Catcoin': 'Catcoin',
-            'CanYaCoin': 'CanYaCoin', // conflict with CAN (Content and AD Network)
+            'Content and AD Network': 'Content and AD Network', // conflict with CAN (Content and AD Network)
             'Comet': 'Comet', // conflict with CMT (CyberMiles)
             'CPChain': 'CPChain',
             'Cubits': 'Cubits', // conflict with QBT (Qbao)
@@ -109,7 +109,7 @@ module.exports = class coinmarketcap extends Exchange {
             'GET Protocol': 'GET Protocol',
             'Global Tour Coin': 'Global Tour Coin', // conflict with GTC (Game.com)
             'GuccioneCoin': 'GuccioneCoin', // conflict with GCC (Global Cryptocurrency)
-            'Hi Mutual Society': 'Hi Mutual Society', // conflict with HMC (HarmonyCoin)
+            'HarmonyCoin': 'HarmonyCoin', // conflict with HMC (Hi Mutual Society)
             'Huncoin': 'Huncoin', // conflict with HNC (Helleniccoin)
             'iCoin': 'iCoin',
             'Infinity Economics': 'Infinity Economics', // conflict with XIN (Mixin)
@@ -142,9 +142,6 @@ module.exports = class coinmarketcap extends Exchange {
                 let base = this.currencyCode (market['symbol'], market['name']);
                 let symbol = base + '/' + quote;
                 let id = baseId + '/' + quoteId;
-                if (market['symbol'].indexOf ('dao') >= 0) {
-                    console.log (market);
-                }
                 result.push ({
                     'id': id,
                     'symbol': symbol,
@@ -225,7 +222,7 @@ module.exports = class coinmarketcap extends Exchange {
         let tickers = {};
         for (let t = 0; t < response.length; t++) {
             let ticker = response[t];
-            let currencyId = (currency in this.currencies) ? this.currencies[currency]['id'] : currency.toLowerCase ();
+            let currencyId = currency.toLowerCase ();
             let id = ticker['id'] + '/' + currencyId;
             let symbol = id;
             let market = undefined;
@@ -270,7 +267,6 @@ module.exports = class coinmarketcap extends Exchange {
                 'info': currency,
                 'name': name,
                 'active': true,
-                'status': 'ok',
                 'fee': undefined, // todo: redesign
                 'precision': precision,
                 'limits': {

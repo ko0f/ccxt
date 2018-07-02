@@ -13,7 +13,7 @@ module.exports = class bitfinex extends Exchange {
         return this.deepExtend (super.describe (), {
             'id': 'bitfinex',
             'name': 'Bitfinex',
-            'countries': 'VG',
+            'countries': [ 'VG' ],
             'version': 'v1',
             'rateLimit': 1500,
             // new metainfo interface
@@ -247,6 +247,7 @@ module.exports = class bitfinex extends Exchange {
             'commonCurrencies': {
                 'BCC': 'CST_BCC',
                 'BCU': 'CST_BCU',
+                'CTX': 'CTXC',
                 'DAT': 'DATA',
                 'DSH': 'DASH', // Bitfinex names Dash as DSH, instead of DASH
                 'IOS': 'IOST',
@@ -272,6 +273,7 @@ module.exports = class bitfinex extends Exchange {
                     'Key amount should be a decimal number, e.g. "123.456"': InvalidOrder, // on isNaN (amount)
                     'ERR_RATE_LIMIT': DDoSProtection,
                     'Nonce is too small.': InvalidNonce,
+                    'No summary found.': ExchangeError, // fetchTradingFees (summary) endpoint can give this vague error message
                 },
                 'broad': {
                     'Invalid order: not enough exchange balance for ': InsufficientFunds, // when buying cost is greater than the available quote currency
@@ -281,6 +283,74 @@ module.exports = class bitfinex extends Exchange {
                 },
             },
             'precisionMode': SIGNIFICANT_DIGITS,
+            'options': {
+                'currencyNames': {
+                    'AGI': 'agi',
+                    'AID': 'aid',
+                    'AIO': 'aio',
+                    'ANT': 'ant',
+                    'AVT': 'aventus', // #1811
+                    'BAT': 'bat',
+                    'BCH': 'bcash', // undocumented
+                    'BCI': 'bci',
+                    'BFT': 'bft',
+                    'BTC': 'bitcoin',
+                    'BTG': 'bgold',
+                    'CFI': 'cfi',
+                    'DAI': 'dai',
+                    'DADI': 'dad',
+                    'DASH': 'dash',
+                    'DATA': 'datacoin',
+                    'DTH': 'dth',
+                    'EDO': 'eidoo', // #1811
+                    'ELF': 'elf',
+                    'EOS': 'eos',
+                    'ETC': 'ethereumc',
+                    'ETH': 'ethereum',
+                    'ETP': 'metaverse',
+                    'FUN': 'fun',
+                    'GNT': 'golem',
+                    'IOST': 'ios',
+                    'IOTA': 'iota',
+                    'LRC': 'lrc',
+                    'LTC': 'litecoin',
+                    'LYM': 'lym',
+                    'MANA': 'mna',
+                    'MIT': 'mit',
+                    'MKR': 'mkr',
+                    'MTN': 'mtn',
+                    'NEO': 'neo',
+                    'ODE': 'ode',
+                    'OMG': 'omisego',
+                    'OMNI': 'mastercoin',
+                    'QASH': 'qash',
+                    'QTUM': 'qtum', // #1811
+                    'RCN': 'rcn',
+                    'RDN': 'rdn',
+                    'REP': 'rep',
+                    'REQ': 'req',
+                    'RLC': 'rlc',
+                    'SAN': 'santiment',
+                    'SNGLS': 'sng',
+                    'SNT': 'status',
+                    'SPANK': 'spk',
+                    'STORJ': 'stj',
+                    'TNB': 'tnb',
+                    'TRX': 'trx',
+                    'USD': 'wire',
+                    'UTK': 'utk',
+                    'USDT': 'tetheruso', // undocumented
+                    'VEE': 'vee',
+                    'WAX': 'wax',
+                    'XLM': 'xlm',
+                    'XMR': 'monero',
+                    'XRP': 'ripple',
+                    'XVG': 'xvg',
+                    'YOYOW': 'yoyow',
+                    'ZEC': 'zcash',
+                    'ZRX': 'zrx',
+                },
+            },
         });
     }
 
@@ -694,69 +764,8 @@ module.exports = class bitfinex extends Exchange {
     }
 
     getCurrencyName (currency) {
-        const names = {
-            'AGI': 'agi',
-            'AID': 'aid',
-            'AIO': 'aio',
-            'ANT': 'ant',
-            'AVT': 'aventus', // #1811
-            'BAT': 'bat',
-            'BCH': 'bcash', // undocumented
-            'BCI': 'bci',
-            'BFT': 'bft',
-            'BTC': 'bitcoin',
-            'BTG': 'bgold',
-            'CFI': 'cfi',
-            'DAI': 'dai',
-            'DASH': 'dash',
-            'DATA': 'datacoin',
-            'DTH': 'dth',
-            'EDO': 'eidoo', // #1811
-            'ELF': 'elf',
-            'EOS': 'eos',
-            'ETC': 'ethereumc',
-            'ETH': 'ethereum',
-            'ETP': 'metaverse',
-            'FUN': 'fun',
-            'GNT': 'golem',
-            'IOST': 'ios',
-            'IOTA': 'iota',
-            'LRC': 'lrc',
-            'LTC': 'litecoin',
-            'MANA': 'mna',
-            'MIT': 'mit',
-            'MTN': 'mtn',
-            'NEO': 'neo',
-            'ODE': 'ode',
-            'OMG': 'omisego',
-            'OMNI': 'mastercoin',
-            'QASH': 'qash',
-            'QTUM': 'qtum', // #1811
-            'RCN': 'rcn',
-            'RDN': 'rdn',
-            'REP': 'rep',
-            'REQ': 'req',
-            'RLC': 'rlc',
-            'SAN': 'santiment',
-            'SNGLS': 'sng',
-            'SNT': 'status',
-            'SPANK': 'spk',
-            'STJ': 'stj',
-            'TNB': 'tnb',
-            'TRX': 'trx',
-            'USD': 'wire',
-            'USDT': 'tetheruso', // undocumented
-            'WAX': 'wax',
-            'XLM': 'xlm',
-            'XMR': 'monero',
-            'XRP': 'ripple',
-            'XVG': 'xvg',
-            'YOYOW': 'yoyow',
-            'ZEC': 'zcash',
-            'ZRX': 'zrx',
-        };
-        if (currency in names)
-            return names[currency];
+        if (currency in this.options['currencyNames'])
+            return this.options['currencyNames'][currency];
         throw new NotSupported (this.id + ' ' + currency + ' not supported for withdrawal');
     }
 
@@ -769,7 +778,6 @@ module.exports = class bitfinex extends Exchange {
         return {
             'currency': currency,
             'address': address,
-            'status': 'ok',
             'info': response['info'],
         };
     }
@@ -793,7 +801,6 @@ module.exports = class bitfinex extends Exchange {
             'currency': currency,
             'address': address,
             'tag': tag,
-            'status': 'ok',
             'info': response,
         };
     }
@@ -816,8 +823,8 @@ module.exports = class bitfinex extends Exchange {
         let errorMessage = this.findBroadlyMatchedKey (this.exceptions['broad'], message);
         if (id === 0) {
             if (typeof errorMessage !== 'undefined') {
-                let Exception = this.exceptions['broad'][errorMessage];
-                throw new Exception (this.id + ' ' + message);
+                let ExceptionClass = this.exceptions['broad'][errorMessage];
+                throw new ExceptionClass (this.id + ' ' + message);
             }
             throw new ExchangeError (this.id + ' withdraw returned an id of zero: ' + this.json (response));
         }

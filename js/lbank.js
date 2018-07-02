@@ -12,14 +12,14 @@ module.exports = class lbank extends Exchange {
         return this.deepExtend (super.describe (), {
             'id': 'lbank',
             'name': 'LBank',
-            'countries': 'CN',
+            'countries': [ 'CN' ],
             'version': 'v1',
             'has': {
                 'fetchTickers': true,
                 'fetchOHLCV': true,
                 'fetchOrder': true,
                 'fetchOrders': true,
-                'fetchOpenOrders': true,
+                'fetchOpenOrders': false, // status 0 API doesn't work
                 'fetchClosedOrders': true,
             },
             'timeframes': {
@@ -40,7 +40,7 @@ module.exports = class lbank extends Exchange {
                 'logo': 'https://user-images.githubusercontent.com/1294454/38063602-9605e28a-3302-11e8-81be-64b1e53c4cfb.jpg',
                 'api': 'https://api.lbank.info',
                 'www': 'https://www.lbank.info',
-                'doc': 'https://www.lbank.info/api/api-overview',
+                'doc': 'https://github.com/LBank-exchange/lbank-official-api-docs',
                 'fees': 'https://lbankinfo.zendesk.com/hc/zh-cn/articles/115002295114--%E8%B4%B9%E7%8E%87%E8%AF%B4%E6%98%8E',
             },
             'api': {
@@ -106,7 +106,7 @@ module.exports = class lbank extends Exchange {
             let [ baseId, quoteId ] = id.split ('_');
             let base = this.commonCurrencyCode (baseId.toUpperCase ());
             let quote = this.commonCurrencyCode (quoteId.toUpperCase ());
-            let symbol = [base, quote].join ('/');
+            let symbol = base + '/' + quote;
             let precision = {
                 'amount': 8,
                 'price': 8,
@@ -148,6 +148,11 @@ module.exports = class lbank extends Exchange {
         let info = ticker;
         ticker = info['ticker'];
         let last = this.safeFloat (ticker, 'latest');
+        let percentage = this.safeFloat (ticker, 'change');
+        let relativeChange = percentage / 100;
+        let open = last / this.sum (1, relativeChange);
+        let change = last - open;
+        let average = this.sum (last, open) / 2;
         return {
             'symbol': symbol,
             'timestamp': timestamp,
@@ -163,9 +168,9 @@ module.exports = class lbank extends Exchange {
             'close': last,
             'last': last,
             'previousClose': undefined,
-            'change': this.safeFloat (ticker, 'change'),
-            'percentage': undefined,
-            'average': undefined,
+            'change': change,
+            'percentage': percentage,
+            'average': average,
             'baseVolume': this.safeFloat (ticker, 'vol'),
             'quoteVolume': this.safeFloat (ticker, 'turnover'),
             'info': info,
@@ -190,9 +195,11 @@ module.exports = class lbank extends Exchange {
         for (let i = 0; i < tickers.length; i++) {
             let ticker = tickers[i];
             let id = ticker['symbol'];
-            let market = this.marketsById[id];
-            let symbol = market['symbol'];
-            result[symbol] = this.parseTicker (ticker, market);
+            if (id in this.marketsById) {
+                let market = this.marketsById[id];
+                let symbol = market['symbol'];
+                result[symbol] = this.parseTicker (ticker, market);
+            }
         }
         return result;
     }
@@ -243,18 +250,30 @@ module.exports = class lbank extends Exchange {
         return this.parseTrades (response, market, since, limit);
     }
 
-    async fetchOHLCV (symbol, timeframe = '5m', since = undefined, limit = undefined, params = {}) {
+    parseOHLCV (ohlcv, market = undefined, timeframe = '1m', since = undefined, limit = undefined) {
+        return [
+            ohlcv[0] * 1000,
+            ohlcv[1],
+            ohlcv[2],
+            ohlcv[3],
+            ohlcv[4],
+            ohlcv[5],
+        ];
+    }
+
+    async fetchOHLCV (symbol, timeframe = '5m', since = undefined, limit = 1000, params = {}) {
         await this.loadMarkets ();
         let market = this.market (symbol);
+        if (typeof since === 'undefined')
+            throw new ExchangeError (this.id + ' fetchOHLCV requires a since argument');
+        if (typeof limit === 'undefined')
+            throw new ExchangeError (this.id + ' fetchOHLCV requires a limit argument');
         let request = {
             'symbol': market['id'],
             'type': this.timeframes[timeframe],
-            'size': 1000,
+            'size': limit,
+            'time': parseInt (since / 1000),
         };
-        if (since)
-            request['time'] = parseInt (since / 1000);
-        if (limit)
-            request['size'] = limit;
         let response = await this.publicGetKline (this.extend (request, params));
         return this.parseOHLCVs (response, market, timeframe, since, limit);
     }
@@ -370,35 +389,37 @@ module.exports = class lbank extends Exchange {
     }
 
     async fetchOrder (id, symbol = undefined, params = {}) {
+        // Id can be a list of ids delimited by a comma
         await this.loadMarkets ();
         let market = this.market (symbol);
         let response = await this.privatePostOrdersInfo (this.extend ({
             'symbol': market['id'],
             'order_id': id,
         }, params));
-        return this.parseOrder (response['orders'][0], market);
+        let orders = this.parseOrders (response['orders'], market);
+        if (orders.length === 1) {
+            return orders[0];
+        } else {
+            return orders;
+        }
     }
 
     async fetchOrders (symbol = undefined, since = undefined, limit = undefined, params = {}) {
         await this.loadMarkets ();
+        if (typeof limit === 'undefined') {
+            limit = 100;
+        }
         let market = this.market (symbol);
         let response = await this.privatePostOrdersInfoHistory (this.extend ({
             'symbol': market['id'],
             'current_page': 1,
-            'page_length': 100,
+            'page_length': limit,
         }, params));
         return this.parseOrders (response['orders'], undefined, since, limit);
     }
 
-    async fetchOpenOrders (symbol = undefined, since = undefined, limit = undefined, params = {}) {
-        let response = await this.fetchOrders (symbol, since, limit, this.extend ({
-            'status': 0,
-        }, params));
-        return response;
-    }
-
     async fetchClosedOrders (symbol = undefined, since = undefined, limit = undefined, params = {}) {
-        let orders = await this.fetchOrders (symbol, since, limit);
+        let orders = await this.fetchOrders (symbol, since, limit, params);
         let closed = this.filterBy (orders, 'status', 'closed');
         let cancelled = this.filterBy (orders, 'status', 'cancelled'); // cancelled orders may be partially filled
         return closed + cancelled;

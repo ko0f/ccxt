@@ -18,6 +18,7 @@ from ccxt.base.errors import ExchangeError
 from ccxt.base.errors import AuthenticationError
 from ccxt.base.errors import PermissionDenied
 from ccxt.base.errors import InsufficientFunds
+from ccxt.base.errors import AddressPending
 from ccxt.base.errors import InvalidOrder
 from ccxt.base.errors import OrderNotFound
 from ccxt.base.errors import DDoSProtection
@@ -30,7 +31,7 @@ class bittrex (Exchange):
         return self.deep_extend(super(bittrex, self).describe(), {
             'id': 'bittrex',
             'name': 'Bittrex',
-            'countries': 'US',
+            'countries': ['US'],
             'version': 'v1.1',
             'rateLimit': 1500,
             # new metainfo interface
@@ -163,7 +164,8 @@ class bittrex (Exchange):
                 'INSUFFICIENT_FUNDS': InsufficientFunds,
                 'QUANTITY_NOT_PROVIDED': InvalidOrder,
                 'MIN_TRADE_REQUIREMENT_NOT_MET': InvalidOrder,
-                'ORDER_NOT_OPEN': InvalidOrder,
+                'ORDER_NOT_OPEN': OrderNotFound,
+                'INVALID_ORDER': InvalidOrder,
                 'UUID_INVALID': OrderNotFound,
                 'RATE_NOT_PROVIDED': InvalidOrder,  # createLimitBuyOrder('ETH/BTC', 1, 0)
                 'WHITELIST_VIOLATION_IP': PermissionDenied,
@@ -171,6 +173,10 @@ class bittrex (Exchange):
             'options': {
                 'parseOrderStatus': False,
                 'hasAlreadyAuthenticatedSuccessfully': False,  # a workaround for APIKEY_INVALID
+            },
+            'commonCurrencies': {
+                'BITS': 'SWIFT',
+                'CPC': 'CapriCoin',
             },
         })
 
@@ -290,7 +296,7 @@ class bittrex (Exchange):
             'ask': self.safe_float(ticker, 'Ask'),
             'askVolume': None,
             'vwap': None,
-            'open': None,
+            'open': previous,
             'close': last,
             'last': last,
             'previousClose': None,
@@ -323,7 +329,6 @@ class bittrex (Exchange):
                 'type': currency['CoinType'],
                 'name': currency['CurrencyLong'],
                 'active': currency['IsActive'],
-                'status': 'ok',
                 'fee': self.safe_float(currency, 'TxFee'),  # todo: redesign
                 'precision': precision,
                 'limits': {
@@ -476,7 +481,7 @@ class bittrex (Exchange):
         request = {}
         request[orderIdField] = id
         response = await self.marketGetCancel(self.extend(request, params))
-        return response
+        return self.parse_order(response)
 
     def parse_symbol(self, id):
         quote, base = id.split('-')
@@ -489,8 +494,16 @@ class bittrex (Exchange):
         if side is None:
             side = self.safe_string(order, 'Type')
         isBuyOrder = (side == 'LIMIT_BUY') or (side == 'BUY')
-        side = 'buy' if isBuyOrder else 'sell'
-        status = 'open'
+        isSellOrder = (side == 'LIMIT_SELL') or (side == 'SELL')
+        if isBuyOrder:
+            side = 'buy'
+        if isSellOrder:
+            side = 'sell'
+        # We parse different fields in a very specific order.
+        # Order might well be closed and then canceled.
+        status = None
+        if ('Opened' in list(order.keys())) and order['Opened']:
+            status = 'open'
         if ('Closed' in list(order.keys())) and order['Closed']:
             status = 'closed'
         if ('CancelInitiated' in list(order.keys())) and order['CancelInitiated']:
@@ -543,11 +556,13 @@ class bittrex (Exchange):
         price = self.safe_float(order, 'Limit')
         cost = self.safe_float(order, 'Price')
         amount = self.safe_float(order, 'Quantity')
-        remaining = self.safe_float(order, 'QuantityRemaining', 0.0)
-        filled = amount - remaining
+        remaining = self.safe_float(order, 'QuantityRemaining')
+        filled = None
+        if amount is not None and remaining is not None:
+            filled = amount - remaining
         if not cost:
-            if price and amount:
-                cost = price * amount
+            if price and filled:
+                cost = price * filled
         if not price:
             if cost and filled:
                 price = cost / filled
@@ -589,6 +604,8 @@ class bittrex (Exchange):
                 if message == 'UUID_INVALID':
                     raise OrderNotFound(self.id + ' fetchOrder() error: ' + self.last_http_response)
             raise e
+        if not response['result']:
+            raise OrderNotFound(self.id + ' order ' + id + ' not found')
         return self.parse_order(response['result'])
 
     async def fetch_closed_orders(self, symbol=None, since=None, limit=None, params={}):
@@ -612,9 +629,8 @@ class bittrex (Exchange):
         }, params))
         address = self.safe_string(response['result'], 'Address')
         message = self.safe_string(response, 'message')
-        status = 'ok'
         if not address or message == 'ADDRESS_GENERATING':
-            status = 'pending'
+            raise AddressPending(self.id + ' the address for ' + code + ' is being generated(pending, not ready yet, retry again later)')
         tag = None
         if (code == 'XRP') or (code == 'XLM'):
             tag = address
@@ -624,7 +640,6 @@ class bittrex (Exchange):
             'currency': code,
             'address': address,
             'tag': tag,
-            'status': status,
             'info': response,
         }
 
@@ -689,13 +704,6 @@ class bittrex (Exchange):
                 message = self.safe_string(response, 'message')
                 feedback = self.id + ' ' + self.json(response)
                 exceptions = self.exceptions
-                if message in exceptions:
-                    raise exceptions[message](feedback)
-                if message is not None:
-                    if message.find('throttled. Try again') >= 0:
-                        raise DDoSProtection(feedback)
-                    if message.find('problem') >= 0:
-                        raise ExchangeNotAvailable(feedback)  # 'There was a problem processing your request.  If self problem persists, please contact...')
                 if message == 'APIKEY_INVALID':
                     if self.options['hasAlreadyAuthenticatedSuccessfully']:
                         raise DDoSProtection(feedback)
@@ -703,7 +711,34 @@ class bittrex (Exchange):
                         raise AuthenticationError(feedback)
                 if message == 'DUST_TRADE_DISALLOWED_MIN_VALUE_50K_SAT':
                     raise InvalidOrder(self.id + ' order cost should be over 50k satoshi ' + self.json(response))
-                raise ExchangeError(self.id + ' ' + self.json(response))
+                if message == 'INVALID_ORDER':
+                    # Bittrex will return an ambiguous INVALID_ORDER message
+                    # upon canceling already-canceled and closed orders
+                    # therefore self special case for cancelOrder
+                    # url = 'https://bittrex.com/api/v1.1/market/cancel?apikey=API_KEY&uuid=ORDER_UUID'
+                    cancel = 'cancel'
+                    indexOfCancel = url.find(cancel)
+                    if indexOfCancel >= 0:
+                        parts = url.split('&')
+                        orderId = None
+                        for i in range(0, len(parts)):
+                            part = parts[i]
+                            keyValue = part.split('=')
+                            if keyValue[0] == 'uuid':
+                                orderId = keyValue[1]
+                                break
+                        if orderId is not None:
+                            raise OrderNotFound(self.id + ' cancelOrder ' + orderId + ' ' + self.json(response))
+                        else:
+                            raise OrderNotFound(self.id + ' cancelOrder ' + self.json(response))
+                if message in exceptions:
+                    raise exceptions[message](feedback)
+                if message is not None:
+                    if message.find('throttled. Try again') >= 0:
+                        raise DDoSProtection(feedback)
+                    if message.find('problem') >= 0:
+                        raise ExchangeNotAvailable(feedback)  # 'There was a problem processing your request.  If self problem persists, please contact...')
+                raise ExchangeError(feedback)
 
     async def request(self, path, api='public', method='GET', params={}, headers=None, body=None):
         response = await self.fetch2(path, api, method, params, headers, body)

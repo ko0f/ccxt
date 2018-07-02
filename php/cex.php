@@ -183,9 +183,13 @@ class cex extends Exchange {
 
     public function fetch_order_book ($symbol, $limit = null, $params = array ()) {
         $this->load_markets();
-        $orderbook = $this->publicGetOrderBookPair (array_merge (array (
+        $request = array (
             'pair' => $this->market_id($symbol),
-        ), $params));
+        );
+        if ($limit !== null) {
+            $request['depth'] = $limit;
+        }
+        $orderbook = $this->publicGetOrderBookPair (array_merge ($request, $params));
         $timestamp = $orderbook['timestamp'] * 1000;
         return $this->parse_order_book($orderbook, $timestamp);
     }
@@ -208,7 +212,7 @@ class cex extends Exchange {
             $since = $this->milliseconds () - 86400000; // yesterday
         } else {
             if ($this->options['fetchOHLCVWarning']) {
-                throw new ExchangeError ($this->id . " fetchOHLCV warning => CEX can return historical candles for a certain date only, this might produce an empty or null $response. Set exchange.options['fetchOHLCVWarning'] = false or add (array ( 'options' => array ( 'fetchOHLCVWarning' => false ))) to constructor $params to suppress this warning message.");
+                throw new ExchangeError ($this->id . " fetchOHLCV warning => CEX can return historical candles for a certain date only, this might produce an empty or null reply. Set exchange.options['fetchOHLCVWarning'] = false or add (array ( 'options' => array ( 'fetchOHLCVWarning' => false ))) to constructor $params to suppress this warning message.");
             }
         }
         $ymd = $this->ymd ($since);
@@ -355,7 +359,7 @@ class cex extends Exchange {
         // Depending on the call, 'time' can be a unix int, unix string or ISO string
         // Yes, really
         $timestamp = $order['time'];
-        if (gettype ($order['time']) == 'string' && mb_strpos ($order['time'], 'T') !== false) {
+        if (gettype ($order['time']) === 'string' && mb_strpos ($order['time'], 'T') !== false) {
             // ISO8601 string
             $timestamp = $this->parse8601 ($timestamp);
         } else {
@@ -525,9 +529,9 @@ class cex extends Exchange {
     }
 
     public function fetch_deposit_address ($code, $params = array ()) {
-        if ($code === 'XRP') {
+        if ($code === 'XRP' || $code === 'XLM') {
             // https://github.com/ccxt/ccxt/pull/2327#issuecomment-375204856
-            throw new NotSupported ($this->id . ' fetchDepositAddress does not support XRP addresses yet (awaiting docs from CEX.io)');
+            throw new NotSupported ($this->id . ' fetchDepositAddress does not support XRP and XLM addresses yet (awaiting docs from CEX.io)');
         }
         $this->load_markets();
         $currency = $this->currency ($code);
@@ -541,7 +545,6 @@ class cex extends Exchange {
             'currency' => $code,
             'address' => $address,
             'tag' => null,
-            'status' => 'ok',
             'info' => $response,
         );
     }

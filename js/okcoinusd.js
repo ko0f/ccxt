@@ -44,8 +44,8 @@ module.exports = class okcoinusd extends Exchange {
             'api': {
                 'web': {
                     'get': [
-                        'markets/currencies',
-                        'markets/products',
+                        'spot/markets/currencies',
+                        'spot/markets/products',
                     ],
                 },
                 'public': {
@@ -78,6 +78,7 @@ module.exports = class okcoinusd extends Exchange {
                         'cancel_order',
                         'cancel_otc_order',
                         'cancel_withdraw',
+                        'funds_transfer',
                         'future_batch_trade',
                         'future_cancel',
                         'future_devolve',
@@ -102,6 +103,7 @@ module.exports = class okcoinusd extends Exchange {
                         'trade',
                         'trade_history',
                         'trade_otc_order',
+                        'wallet_info',
                         'withdraw',
                         'withdraw_info',
                         'unrepayments_info',
@@ -112,7 +114,7 @@ module.exports = class okcoinusd extends Exchange {
             'urls': {
                 'logo': 'https://user-images.githubusercontent.com/1294454/27766791-89ffb502-5ee5-11e7-8a5b-c5950b68ac65.jpg',
                 'api': {
-                    'web': 'https://www.okcoin.com/v2/spot',
+                    'web': 'https://www.okcoin.com/v2',
                     'public': 'https://www.okcoin.com/api',
                     'private': 'https://www.okcoin.com/api',
                 },
@@ -142,25 +144,30 @@ module.exports = class okcoinusd extends Exchange {
                 '10008': ExchangeError, // Illegal URL parameter
             },
             'options': {
+                'defaultContractType': 'this_week', // next_week, quarter
                 'warnOnFetchOHLCVLimitArgument': true,
+                'fiats': [ 'USD', 'CNY' ],
+                'futures': {
+                    'BCH': true,
+                    'BTC': true,
+                    'BTG': true,
+                    'EOS': true,
+                    'ETC': true,
+                    'ETH': true,
+                    'LTC': true,
+                    'NEO': true,
+                    'QTUM': true,
+                    'USDT': true,
+                    'XUC': true,
+                },
             },
         });
     }
 
     async fetchMarkets () {
-        let response = await this.webGetMarketsProducts ();
+        let response = await this.webGetSpotMarketsProducts ();
         let markets = response['data'];
         let result = [];
-        const futureMarkets = {
-            'BCH/USD': true,
-            'BTC/USD': true,
-            'ETC/USD': true,
-            'ETH/USD': true,
-            'LTC/USD': true,
-            'XRP/USD': true,
-            'EOS/USD': true,
-            'BTG/USD': true,
-        };
         for (let i = 0; i < markets.length; i++) {
             let id = markets[i]['symbol'];
             let [ baseId, quoteId ] = id.split ('_');
@@ -211,18 +218,21 @@ module.exports = class okcoinusd extends Exchange {
                 },
             });
             result.push (market);
-            let futureQuote = (market['quote'] === 'USDT') ? 'USD' : market['quote'];
-            let futureSymbol = market['base'] + '/' + futureQuote;
-            if ((this.has['futures']) && (futureSymbol in futureMarkets)) {
-                result.push (this.extend (market, {
-                    'quote': 'USD',
-                    'symbol': market['base'] + '/USD',
-                    'id': market['id'].replace ('usdt', 'usd'),
-                    'quoteId': market['quoteId'].replace ('usdt', 'usd'),
-                    'type': 'future',
-                    'spot': false,
-                    'future': true,
-                }));
+            if ((this.has['futures']) && (market['base'] in this.options['futures'])) {
+                let fiats = this.options['fiats'];
+                for (let j = 0; j < fiats.length; j++) {
+                    const fiat = fiats[j];
+                    const lowercaseFiat = fiat.toLowerCase ();
+                    result.push (this.extend (market, {
+                        'quote': fiat,
+                        'symbol': market['base'] + '/' + fiat,
+                        'id': market['base'].toLowerCase () + '_' + lowercaseFiat,
+                        'quoteId': lowercaseFiat,
+                        'type': 'future',
+                        'spot': false,
+                        'future': true,
+                    }));
+                }
             }
         }
         return result;
@@ -239,7 +249,7 @@ module.exports = class okcoinusd extends Exchange {
             request['size'] = limit;
         if (market['future']) {
             method += 'Future';
-            request['contract_type'] = 'this_week'; // next_week, quarter
+            request['contract_type'] = this.options['defaultContractType']; // this_week, next_week, quarter
         }
         method += 'Depth';
         let orderbook = await this[method] (this.extend (request, params));
@@ -292,7 +302,7 @@ module.exports = class okcoinusd extends Exchange {
         };
         if (market['future']) {
             method += 'Future';
-            request['contract_type'] = 'this_week'; // next_week, quarter
+            request['contract_type'] = this.options['defaultContractType']; // this_week, next_week, quarter
         }
         method += 'Ticker';
         let response = await this[method] (this.extend (request, params));
@@ -334,7 +344,7 @@ module.exports = class okcoinusd extends Exchange {
         };
         if (market['future']) {
             method += 'Future';
-            request['contract_type'] = 'this_week'; // next_week, quarter
+            request['contract_type'] = this.options['defaultContractType']; // this_week, next_week, quarter
         }
         method += 'Trades';
         let response = await this[method] (this.extend (request, params));
@@ -366,7 +376,7 @@ module.exports = class okcoinusd extends Exchange {
         };
         if (market['future']) {
             method += 'Future';
-            request['contract_type'] = 'this_week'; // next_week, quarter
+            request['contract_type'] = this.options['defaultContractType']; // this_week, next_week, quarter
         }
         method += 'Kline';
         if (typeof limit !== 'undefined') {
@@ -411,7 +421,7 @@ module.exports = class okcoinusd extends Exchange {
         if (market['future']) {
             method += 'Future';
             order = this.extend (order, {
-                'contract_type': 'this_week', // next_week, quarter
+                'contract_type': this.options['defaultContractType'], // this_week, next_week, quarter
                 'match_price': 0, // match best counter party price? 0 or 1, ignores price if 1
                 'lever_rate': 10, // leverage rate value: 10 or 20 (10 by default)
                 'price': price,
@@ -468,7 +478,7 @@ module.exports = class okcoinusd extends Exchange {
         let method = 'privatePost';
         if (market['future']) {
             method += 'FutureCancel';
-            request['contract_type'] = 'this_week'; // next_week, quarter
+            request['contract_type'] = this.options['defaultContractType']; // this_week, next_week, quarter
         } else {
             method += 'CancelOrder';
         }
@@ -594,7 +604,7 @@ module.exports = class okcoinusd extends Exchange {
         };
         if (market['future']) {
             method += 'Future';
-            request['contract_type'] = 'this_week'; // next_week, quarter
+            request['contract_type'] = this.options['defaultContractType']; // this_week, next_week, quarter
         }
         method += 'OrderInfo';
         let response = await this[method] (this.extend (request, params));
@@ -617,7 +627,7 @@ module.exports = class okcoinusd extends Exchange {
         let order_id_in_params = ('order_id' in params);
         if (market['future']) {
             method += 'FutureOrdersInfo';
-            request['contract_type'] = 'this_week'; // next_week, quarter
+            request['contract_type'] = this.options['defaultContractType']; // this_week, next_week, quarter
             if (!order_id_in_params)
                 throw new ExchangeError (this.id + ' fetchOrders() requires order_id param for futures market ' + symbol + ' (a string of one or more order ids, comma-separated)');
         } else {

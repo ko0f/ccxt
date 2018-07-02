@@ -519,19 +519,19 @@ class exmo (Exchange):
         await self.load_markets()
         response = await self.privatePostDepositAddress(params)
         depositAddress = self.safe_string(response, code)
-        status = 'ok'
         address = None
         tag = None
         if depositAddress:
             addressAndTag = depositAddress.split(',')
             address = addressAndTag[0]
-            tag = addressAndTag[1]
+            numParts = len(addressAndTag)
+            if numParts > 1:
+                tag = addressAndTag[1]
         self.check_address(address)
         return {
             'currency': code,
             'address': address,
             'tag': tag,
-            'status': status,
             'info': response,
         }
 

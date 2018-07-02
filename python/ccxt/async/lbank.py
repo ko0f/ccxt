@@ -17,14 +17,14 @@ class lbank (Exchange):
         return self.deep_extend(super(lbank, self).describe(), {
             'id': 'lbank',
             'name': 'LBank',
-            'countries': 'CN',
+            'countries': ['CN'],
             'version': 'v1',
             'has': {
                 'fetchTickers': True,
                 'fetchOHLCV': True,
                 'fetchOrder': True,
                 'fetchOrders': True,
-                'fetchOpenOrders': True,
+                'fetchOpenOrders': False,  # status 0 API doesn't work
                 'fetchClosedOrders': True,
             },
             'timeframes': {
@@ -45,7 +45,7 @@ class lbank (Exchange):
                 'logo': 'https://user-images.githubusercontent.com/1294454/38063602-9605e28a-3302-11e8-81be-64b1e53c4cfb.jpg',
                 'api': 'https://api.lbank.info',
                 'www': 'https://www.lbank.info',
-                'doc': 'https://www.lbank.info/api/api-overview',
+                'doc': 'https://github.com/LBank-exchange/lbank-official-api-docs',
                 'fees': 'https://lbankinfo.zendesk.com/hc/zh-cn/articles/115002295114--%E8%B4%B9%E7%8E%87%E8%AF%B4%E6%98%8E',
             },
             'api': {
@@ -110,7 +110,7 @@ class lbank (Exchange):
             baseId, quoteId = id.split('_')
             base = self.common_currency_code(baseId.upper())
             quote = self.common_currency_code(quoteId.upper())
-            symbol = '/'.join([base, quote])
+            symbol = base + '/' + quote
             precision = {
                 'amount': 8,
                 'price': 8,
@@ -150,6 +150,11 @@ class lbank (Exchange):
         info = ticker
         ticker = info['ticker']
         last = self.safe_float(ticker, 'latest')
+        percentage = self.safe_float(ticker, 'change')
+        relativeChange = percentage / 100
+        open = last / self.sum(1, relativeChange)
+        change = last - open
+        average = self.sum(last, open) / 2
         return {
             'symbol': symbol,
             'timestamp': timestamp,
@@ -165,9 +170,9 @@ class lbank (Exchange):
             'close': last,
             'last': last,
             'previousClose': None,
-            'change': self.safe_float(ticker, 'change'),
-            'percentage': None,
-            'average': None,
+            'change': change,
+            'percentage': percentage,
+            'average': average,
             'baseVolume': self.safe_float(ticker, 'vol'),
             'quoteVolume': self.safe_float(ticker, 'turnover'),
             'info': info,
@@ -190,9 +195,10 @@ class lbank (Exchange):
         for i in range(0, len(tickers)):
             ticker = tickers[i]
             id = ticker['symbol']
-            market = self.marketsById[id]
-            symbol = market['symbol']
-            result[symbol] = self.parse_ticker(ticker, market)
+            if id in self.marketsById:
+                market = self.marketsById[id]
+                symbol = market['symbol']
+                result[symbol] = self.parse_ticker(ticker, market)
         return result
 
     async def fetch_order_book(self, symbol, limit=60, params={}):
@@ -238,18 +244,29 @@ class lbank (Exchange):
         response = await self.publicGetTrades(self.extend(request, params))
         return self.parse_trades(response, market, since, limit)
 
-    async def fetch_ohlcv(self, symbol, timeframe='5m', since=None, limit=None, params={}):
+    def parse_ohlcv(self, ohlcv, market=None, timeframe='1m', since=None, limit=None):
+        return [
+            ohlcv[0] * 1000,
+            ohlcv[1],
+            ohlcv[2],
+            ohlcv[3],
+            ohlcv[4],
+            ohlcv[5],
+        ]
+
+    async def fetch_ohlcv(self, symbol, timeframe='5m', since=None, limit=1000, params={}):
         await self.load_markets()
         market = self.market(symbol)
+        if since is None:
+            raise ExchangeError(self.id + ' fetchOHLCV requires a since argument')
+        if limit is None:
+            raise ExchangeError(self.id + ' fetchOHLCV requires a limit argument')
         request = {
             'symbol': market['id'],
             'type': self.timeframes[timeframe],
-            'size': 1000,
+            'size': limit,
+            'time': int(since / 1000),
         }
-        if since:
-            request['time'] = int(since / 1000)
-        if limit:
-            request['size'] = limit
         response = await self.publicGetKline(self.extend(request, params))
         return self.parse_ohlcvs(response, market, timeframe, since, limit)
 
@@ -355,32 +372,33 @@ class lbank (Exchange):
         return response
 
     async def fetch_order(self, id, symbol=None, params={}):
+        # Id can be a list of ids delimited by a comma
         await self.load_markets()
         market = self.market(symbol)
         response = await self.privatePostOrdersInfo(self.extend({
             'symbol': market['id'],
             'order_id': id,
         }, params))
-        return self.parse_order(response['orders'][0], market)
+        orders = self.parse_orders(response['orders'], market)
+        if len(orders) == 1:
+            return orders[0]
+        else:
+            return orders
 
     async def fetch_orders(self, symbol=None, since=None, limit=None, params={}):
         await self.load_markets()
+        if limit is None:
+            limit = 100
         market = self.market(symbol)
         response = await self.privatePostOrdersInfoHistory(self.extend({
             'symbol': market['id'],
             'current_page': 1,
-            'page_length': 100,
+            'page_length': limit,
         }, params))
         return self.parse_orders(response['orders'], None, since, limit)
 
-    async def fetch_open_orders(self, symbol=None, since=None, limit=None, params={}):
-        response = await self.fetch_orders(symbol, since, limit, self.extend({
-            'status': 0,
-        }, params))
-        return response
-
     async def fetch_closed_orders(self, symbol=None, since=None, limit=None, params={}):
-        orders = await self.fetch_orders(symbol, since, limit)
+        orders = await self.fetch_orders(symbol, since, limit, params)
         closed = self.filter_by(orders, 'status', 'closed')
         cancelled = self.filter_by(orders, 'status', 'cancelled')  # cancelled orders may be partially filled
         return closed + cancelled

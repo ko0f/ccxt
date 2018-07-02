@@ -13,14 +13,14 @@ class lbank extends Exchange {
         return array_replace_recursive (parent::describe (), array (
             'id' => 'lbank',
             'name' => 'LBank',
-            'countries' => 'CN',
+            'countries' => array ( 'CN' ),
             'version' => 'v1',
             'has' => array (
                 'fetchTickers' => true,
                 'fetchOHLCV' => true,
                 'fetchOrder' => true,
                 'fetchOrders' => true,
-                'fetchOpenOrders' => true,
+                'fetchOpenOrders' => false, // status 0 API doesn't work
                 'fetchClosedOrders' => true,
             ),
             'timeframes' => array (
@@ -41,7 +41,7 @@ class lbank extends Exchange {
                 'logo' => 'https://user-images.githubusercontent.com/1294454/38063602-9605e28a-3302-11e8-81be-64b1e53c4cfb.jpg',
                 'api' => 'https://api.lbank.info',
                 'www' => 'https://www.lbank.info',
-                'doc' => 'https://www.lbank.info/api/api-overview',
+                'doc' => 'https://github.com/LBank-exchange/lbank-official-api-docs',
                 'fees' => 'https://lbankinfo.zendesk.com/hc/zh-cn/articles/115002295114--%E8%B4%B9%E7%8E%87%E8%AF%B4%E6%98%8E',
             ),
             'api' => array (
@@ -107,7 +107,7 @@ class lbank extends Exchange {
             list ($baseId, $quoteId) = explode ('_', $id);
             $base = $this->common_currency_code(strtoupper ($baseId));
             $quote = $this->common_currency_code(strtoupper ($quoteId));
-            $symbol = implode ('/', array ($base, $quote));
+            $symbol = $base . '/' . $quote;
             $precision = array (
                 'amount' => 8,
                 'price' => 8,
@@ -149,6 +149,11 @@ class lbank extends Exchange {
         $info = $ticker;
         $ticker = $info['ticker'];
         $last = $this->safe_float($ticker, 'latest');
+        $percentage = $this->safe_float($ticker, 'change');
+        $relativeChange = $percentage / 100;
+        $open = $last / $this->sum (1, $relativeChange);
+        $change = $last - $open;
+        $average = $this->sum ($last, $open) / 2;
         return array (
             'symbol' => $symbol,
             'timestamp' => $timestamp,
@@ -164,9 +169,9 @@ class lbank extends Exchange {
             'close' => $last,
             'last' => $last,
             'previousClose' => null,
-            'change' => $this->safe_float($ticker, 'change'),
-            'percentage' => null,
-            'average' => null,
+            'change' => $change,
+            'percentage' => $percentage,
+            'average' => $average,
             'baseVolume' => $this->safe_float($ticker, 'vol'),
             'quoteVolume' => $this->safe_float($ticker, 'turnover'),
             'info' => $info,
@@ -191,9 +196,11 @@ class lbank extends Exchange {
         for ($i = 0; $i < count ($tickers); $i++) {
             $ticker = $tickers[$i];
             $id = $ticker['symbol'];
-            $market = $this->marketsById[$id];
-            $symbol = $market['symbol'];
-            $result[$symbol] = $this->parse_ticker($ticker, $market);
+            if (is_array ($this->marketsById) && array_key_exists ($id, $this->marketsById)) {
+                $market = $this->marketsById[$id];
+                $symbol = $market['symbol'];
+                $result[$symbol] = $this->parse_ticker($ticker, $market);
+            }
         }
         return $result;
     }
@@ -244,18 +251,30 @@ class lbank extends Exchange {
         return $this->parse_trades($response, $market, $since, $limit);
     }
 
-    public function fetch_ohlcv ($symbol, $timeframe = '5m', $since = null, $limit = null, $params = array ()) {
+    public function parse_ohlcv ($ohlcv, $market = null, $timeframe = '1m', $since = null, $limit = null) {
+        return [
+            $ohlcv[0] * 1000,
+            $ohlcv[1],
+            $ohlcv[2],
+            $ohlcv[3],
+            $ohlcv[4],
+            $ohlcv[5],
+        ];
+    }
+
+    public function fetch_ohlcv ($symbol, $timeframe = '5m', $since = null, $limit = 1000, $params = array ()) {
         $this->load_markets();
         $market = $this->market ($symbol);
+        if ($since === null)
+            throw new ExchangeError ($this->id . ' fetchOHLCV requires a $since argument');
+        if ($limit === null)
+            throw new ExchangeError ($this->id . ' fetchOHLCV requires a $limit argument');
         $request = array (
             'symbol' => $market['id'],
             'type' => $this->timeframes[$timeframe],
-            'size' => 1000,
+            'size' => $limit,
+            'time' => intval ($since / 1000),
         );
-        if ($since)
-            $request['time'] = intval ($since / 1000);
-        if ($limit)
-            $request['size'] = $limit;
         $response = $this->publicGetKline (array_merge ($request, $params));
         return $this->parse_ohlcvs($response, $market, $timeframe, $since, $limit);
     }
@@ -371,35 +390,37 @@ class lbank extends Exchange {
     }
 
     public function fetch_order ($id, $symbol = null, $params = array ()) {
+        // Id can be a list of ids delimited by a comma
         $this->load_markets();
         $market = $this->market ($symbol);
         $response = $this->privatePostOrdersInfo (array_merge (array (
             'symbol' => $market['id'],
             'order_id' => $id,
         ), $params));
-        return $this->parse_order($response['orders'][0], $market);
+        $orders = $this->parse_orders($response['orders'], $market);
+        if (strlen ($orders) === 1) {
+            return $orders[0];
+        } else {
+            return $orders;
+        }
     }
 
     public function fetch_orders ($symbol = null, $since = null, $limit = null, $params = array ()) {
         $this->load_markets();
+        if ($limit === null) {
+            $limit = 100;
+        }
         $market = $this->market ($symbol);
         $response = $this->privatePostOrdersInfoHistory (array_merge (array (
             'symbol' => $market['id'],
             'current_page' => 1,
-            'page_length' => 100,
+            'page_length' => $limit,
         ), $params));
         return $this->parse_orders($response['orders'], null, $since, $limit);
     }
 
-    public function fetch_open_orders ($symbol = null, $since = null, $limit = null, $params = array ()) {
-        $response = $this->fetch_orders($symbol, $since, $limit, array_merge (array (
-            'status' => 0,
-        ), $params));
-        return $response;
-    }
-
     public function fetch_closed_orders ($symbol = null, $since = null, $limit = null, $params = array ()) {
-        $orders = $this->fetch_orders($symbol, $since, $limit);
+        $orders = $this->fetch_orders($symbol, $since, $limit, $params);
         $closed = $this->filter_by($orders, 'status', 'closed');
         $cancelled = $this->filter_by($orders, 'status', 'cancelled'); // $cancelled $orders may be partially filled
         return $closed . $cancelled;

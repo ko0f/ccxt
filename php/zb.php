@@ -13,7 +13,7 @@ class zb extends Exchange {
         return array_replace_recursive (parent::describe (), array (
             'id' => 'zb',
             'name' => 'ZB',
-            'countries' => 'CN',
+            'countries' => array ( 'CN' ),
             'rateLimit' => 1000,
             'version' => 'v1',
             'has' => array (
@@ -508,7 +508,7 @@ class zb extends Exchange {
     }
 
     public function handle_errors ($httpCode, $reason, $url, $method, $headers, $body) {
-        if (gettype ($body) != 'string')
+        if (gettype ($body) !== 'string')
             return; // fallback to default error handler
         if (strlen ($body) < 2)
             return; // fallback to default error handler

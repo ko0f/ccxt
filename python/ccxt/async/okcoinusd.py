@@ -51,8 +51,8 @@ class okcoinusd (Exchange):
             'api': {
                 'web': {
                     'get': [
-                        'markets/currencies',
-                        'markets/products',
+                        'spot/markets/currencies',
+                        'spot/markets/products',
                     ],
                 },
                 'public': {
@@ -85,6 +85,7 @@ class okcoinusd (Exchange):
                         'cancel_order',
                         'cancel_otc_order',
                         'cancel_withdraw',
+                        'funds_transfer',
                         'future_batch_trade',
                         'future_cancel',
                         'future_devolve',
@@ -109,6 +110,7 @@ class okcoinusd (Exchange):
                         'trade',
                         'trade_history',
                         'trade_otc_order',
+                        'wallet_info',
                         'withdraw',
                         'withdraw_info',
                         'unrepayments_info',
@@ -119,7 +121,7 @@ class okcoinusd (Exchange):
             'urls': {
                 'logo': 'https://user-images.githubusercontent.com/1294454/27766791-89ffb502-5ee5-11e7-8a5b-c5950b68ac65.jpg',
                 'api': {
-                    'web': 'https://www.okcoin.com/v2/spot',
+                    'web': 'https://www.okcoin.com/v2',
                     'public': 'https://www.okcoin.com/api',
                     'private': 'https://www.okcoin.com/api',
                 },
@@ -149,24 +151,29 @@ class okcoinusd (Exchange):
                 '10008': ExchangeError,  # Illegal URL parameter
             },
             'options': {
+                'defaultContractType': 'this_week',  # next_week, quarter
                 'warnOnFetchOHLCVLimitArgument': True,
+                'fiats': ['USD', 'CNY'],
+                'futures': {
+                    'BCH': True,
+                    'BTC': True,
+                    'BTG': True,
+                    'EOS': True,
+                    'ETC': True,
+                    'ETH': True,
+                    'LTC': True,
+                    'NEO': True,
+                    'QTUM': True,
+                    'USDT': True,
+                    'XUC': True,
+                },
             },
         })
 
     async def fetch_markets(self):
-        response = await self.webGetMarketsProducts()
+        response = await self.webGetSpotMarketsProducts()
         markets = response['data']
         result = []
-        futureMarkets = {
-            'BCH/USD': True,
-            'BTC/USD': True,
-            'ETC/USD': True,
-            'ETH/USD': True,
-            'LTC/USD': True,
-            'XRP/USD': True,
-            'EOS/USD': True,
-            'BTG/USD': True,
-        }
         for i in range(0, len(markets)):
             id = markets[i]['symbol']
             baseId, quoteId = id.split('_')
@@ -217,18 +224,20 @@ class okcoinusd (Exchange):
                 },
             })
             result.append(market)
-            futureQuote = 'USD' if (market['quote'] == 'USDT') else market['quote']
-            futureSymbol = market['base'] + '/' + futureQuote
-            if (self.has['futures']) and(futureSymbol in list(futureMarkets.keys())):
-                result.append(self.extend(market, {
-                    'quote': 'USD',
-                    'symbol': market['base'] + '/USD',
-                    'id': market['id'].replace('usdt', 'usd'),
-                    'quoteId': market['quoteId'].replace('usdt', 'usd'),
-                    'type': 'future',
-                    'spot': False,
-                    'future': True,
-                }))
+            if (self.has['futures']) and(market['base'] in list(self.options['futures'].keys())):
+                fiats = self.options['fiats']
+                for j in range(0, len(fiats)):
+                    fiat = fiats[j]
+                    lowercaseFiat = fiat.lower()
+                    result.append(self.extend(market, {
+                        'quote': fiat,
+                        'symbol': market['base'] + '/' + fiat,
+                        'id': market['base'].lower() + '_' + lowercaseFiat,
+                        'quoteId': lowercaseFiat,
+                        'type': 'future',
+                        'spot': False,
+                        'future': True,
+                    }))
         return result
 
     async def fetch_order_book(self, symbol, limit=None, params={}):
@@ -242,7 +251,7 @@ class okcoinusd (Exchange):
             request['size'] = limit
         if market['future']:
             method += 'Future'
-            request['contract_type'] = 'this_week'  # next_week, quarter
+            request['contract_type'] = self.options['defaultContractType']  # self_week, next_week, quarter
         method += 'Depth'
         orderbook = await getattr(self, method)(self.extend(request, params))
         return self.parse_order_book(orderbook)
@@ -290,7 +299,7 @@ class okcoinusd (Exchange):
         }
         if market['future']:
             method += 'Future'
-            request['contract_type'] = 'this_week'  # next_week, quarter
+            request['contract_type'] = self.options['defaultContractType']  # self_week, next_week, quarter
         method += 'Ticker'
         response = await getattr(self, method)(self.extend(request, params))
         ticker = self.safe_value(response, 'ticker')
@@ -328,7 +337,7 @@ class okcoinusd (Exchange):
         }
         if market['future']:
             method += 'Future'
-            request['contract_type'] = 'this_week'  # next_week, quarter
+            request['contract_type'] = self.options['defaultContractType']  # self_week, next_week, quarter
         method += 'Trades'
         response = await getattr(self, method)(self.extend(request, params))
         return self.parse_trades(response, market, since, limit)
@@ -357,7 +366,7 @@ class okcoinusd (Exchange):
         }
         if market['future']:
             method += 'Future'
-            request['contract_type'] = 'this_week'  # next_week, quarter
+            request['contract_type'] = self.options['defaultContractType']  # self_week, next_week, quarter
         method += 'Kline'
         if limit is not None:
             if self.options['warnOnFetchOHLCVLimitArgument']:
@@ -397,7 +406,7 @@ class okcoinusd (Exchange):
         if market['future']:
             method += 'Future'
             order = self.extend(order, {
-                'contract_type': 'this_week',  # next_week, quarter
+                'contract_type': self.options['defaultContractType'],  # self_week, next_week, quarter
                 'match_price': 0,  # match best counter party price? 0 or 1, ignores price if 1
                 'lever_rate': 10,  # leverage rate value: 10 or 20(10 by default)
                 'price': price,
@@ -450,7 +459,7 @@ class okcoinusd (Exchange):
         method = 'privatePost'
         if market['future']:
             method += 'FutureCancel'
-            request['contract_type'] = 'this_week'  # next_week, quarter
+            request['contract_type'] = self.options['defaultContractType']  # self_week, next_week, quarter
         else:
             method += 'CancelOrder'
         response = await getattr(self, method)(self.extend(request, params))
@@ -565,7 +574,7 @@ class okcoinusd (Exchange):
         }
         if market['future']:
             method += 'Future'
-            request['contract_type'] = 'this_week'  # next_week, quarter
+            request['contract_type'] = self.options['defaultContractType']  # self_week, next_week, quarter
         method += 'OrderInfo'
         response = await getattr(self, method)(self.extend(request, params))
         ordersField = self.get_orders_field()
@@ -586,7 +595,7 @@ class okcoinusd (Exchange):
         order_id_in_params = ('order_id' in list(params.keys()))
         if market['future']:
             method += 'FutureOrdersInfo'
-            request['contract_type'] = 'this_week'  # next_week, quarter
+            request['contract_type'] = self.options['defaultContractType']  # self_week, next_week, quarter
             if not order_id_in_params:
                 raise ExchangeError(self.id + ' fetchOrders() requires order_id param for futures market ' + symbol + '(a string of one or more order ids, comma-separated)')
         else:

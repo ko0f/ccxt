@@ -16,7 +16,7 @@ class coinmarketcap (Exchange):
             'name': 'CoinMarketCap',
             'rateLimit': 10000,
             'version': 'v1',
-            'countries': 'US',
+            'countries': ['US'],
             'has': {
                 'CORS': True,
                 'privateAPI': False,
@@ -99,7 +99,7 @@ class coinmarketcap (Exchange):
             'BlazeCoin': 'BlazeCoin',
             'BlockCAT': 'BlockCAT',
             'Catcoin': 'Catcoin',
-            'CanYaCoin': 'CanYaCoin',  # conflict with CAN(Content and AD Network)
+            'Content and AD Network': 'Content and AD Network',  # conflict with CAN(Content and AD Network)
             'Comet': 'Comet',  # conflict with CMT(CyberMiles)
             'CPChain': 'CPChain',
             'Cubits': 'Cubits',  # conflict with QBT(Qbao)
@@ -109,7 +109,7 @@ class coinmarketcap (Exchange):
             'GET Protocol': 'GET Protocol',
             'Global Tour Coin': 'Global Tour Coin',  # conflict with GTC(Game.com)
             'GuccioneCoin': 'GuccioneCoin',  # conflict with GCC(Global Cryptocurrency)
-            'Hi Mutual Society': 'Hi Mutual Society',  # conflict with HMC(HarmonyCoin)
+            'HarmonyCoin': 'HarmonyCoin',  # conflict with HMC(Hi Mutual Society)
             'Huncoin': 'Huncoin',  # conflict with HNC(Helleniccoin)
             'iCoin': 'iCoin',
             'Infinity Economics': 'Infinity Economics',  # conflict with XIN(Mixin)
@@ -141,8 +141,6 @@ class coinmarketcap (Exchange):
                 base = self.currency_code(market['symbol'], market['name'])
                 symbol = base + '/' + quote
                 id = baseId + '/' + quoteId
-                if market['symbol'].find('dao') >= 0:
-                    print(market)
                 result.append({
                     'id': id,
                     'symbol': symbol,
@@ -217,7 +215,7 @@ class coinmarketcap (Exchange):
         tickers = {}
         for t in range(0, len(response)):
             ticker = response[t]
-            currencyId = self.currencies[currency]['id'] if (currency in list(self.currencies.keys())) else currency.lower()
+            currencyId = currency.lower()
             id = ticker['id'] + '/' + currencyId
             symbol = id
             market = None
@@ -258,7 +256,6 @@ class coinmarketcap (Exchange):
                 'info': currency,
                 'name': name,
                 'active': True,
-                'status': 'ok',
                 'fee': None,  # todo: redesign
                 'precision': precision,
                 'limits': {

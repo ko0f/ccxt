@@ -14,7 +14,7 @@ class coinex extends Exchange {
             'id' => 'coinex',
             'name' => 'CoinEx',
             'version' => 'v1',
-            'countries' => 'CN',
+            'countries' => array ( 'CN' ),
             'rateLimit' => 1000,
             'has' => array (
                 'fetchTickers' => true,
@@ -49,6 +49,7 @@ class coinex extends Exchange {
                 'www' => 'https://www.coinex.com',
                 'doc' => 'https://github.com/coinexcom/coinex_exchange_api/wiki',
                 'fees' => 'https://www.coinex.com/fees',
+                'referral' => 'https://www.coinex.com/account/signup?refer_code=yw5fz',
             ),
             'api' => array (
                 'web' => array (
@@ -111,6 +112,22 @@ class coinex extends Exchange {
                 'price' => 8,
             ),
         ));
+    }
+
+    public function cost_to_precision ($symbol, $cost) {
+        return $this->decimal_to_precision($cost, ROUND, $this->markets[$symbol]['precision']['price']);
+    }
+
+    public function price_to_precision ($symbol, $price) {
+        return $this->decimal_to_precision($price, ROUND, $this->markets[$symbol]['precision']['price']);
+    }
+
+    public function amount_to_precision ($symbol, $amount) {
+        return $this->decimal_to_precision($amount, TRUNCATE, $this->markets[$symbol]['precision']['amount']);
+    }
+
+    public function fee_to_precision ($currency, $fee) {
+        return $this->decimal_to_precision($fee, ROUND, $this->currencies[$currency]['precision']);
     }
 
     public function fetch_markets () {
@@ -218,12 +235,16 @@ class coinex extends Exchange {
         return $result;
     }
 
-    public function fetch_order_book ($symbol, $params = array ()) {
+    public function fetch_order_book ($symbol, $limit = 20, $params = array ()) {
         $this->load_markets();
-        $response = $this->publicGetMarketDepth (array_merge (array (
+        if ($limit === null)
+            $limit = 20; // default
+        $request = array (
             'market' => $this->market_id($symbol),
             'merge' => '0.00000001',
-        ), $params));
+            'limit' => (string) $limit,
+        );
+        $response = $this->publicGetMarketDepth (array_merge ($request, $params));
         return $this->parse_order_book($response['data']);
     }
 
