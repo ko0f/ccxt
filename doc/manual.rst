@@ -55,7 +55,7 @@ Full public and private HTTP REST APIs for all exchanges are implemented. WebSoc
 Exchanges
 =========
 
-The ccxt library currently supports the following 122 cryptocurrency exchange markets and trading APIs:
+The ccxt library currently supports the following 123 cryptocurrency exchange markets and trading APIs:
 
 +----------------------+--------------------+---------------------------------------------------------------------------------+-----+-------------------------------------------------------------------------------------------------+------------------------------------------+
 |                      | id                 | name                                                                            | ver | doc                                                                                             | countries                                |
@@ -191,6 +191,8 @@ The ccxt library currently supports the following 122 cryptocurrency exchange ma
 | |exmo|               | exmo               | `EXMO <https://exmo.me/?ref=131685>`__                                          | 1   | `API <https://exmo.me/en/api_doc?ref=131685>`__                                                 | Spain, Russia                            |
 +----------------------+--------------------+---------------------------------------------------------------------------------+-----+-------------------------------------------------------------------------------------------------+------------------------------------------+
 | |exx|                | exx                | `EXX <https://www.exx.com/>`__                                                  | \*  | `API <https://www.exx.com/help/restApi>`__                                                      | China                                    |
++----------------------+--------------------+---------------------------------------------------------------------------------+-----+-------------------------------------------------------------------------------------------------+------------------------------------------+
+| |fcoin|              | fcoin              | `FCoin <https://www.fcoin.com/i/Z5P7V>`__                                       | 2   | `API <https://developer.fcoin.com>`__                                                           | China                                    |
 +----------------------+--------------------+---------------------------------------------------------------------------------+-----+-------------------------------------------------------------------------------------------------+------------------------------------------+
 | |flowbtc|            | flowbtc            | `flowBTC <https://trader.flowbtc.com>`__                                        | 1   | `API <https://www.flowbtc.com.br/api.html>`__                                                   | Brazil                                   |
 +----------------------+--------------------+---------------------------------------------------------------------------------+-----+-------------------------------------------------------------------------------------------------+------------------------------------------+
@@ -1397,7 +1399,7 @@ A price ticker contains statistics for a particular market/symbol for some perio
                DASH / ETH
                        ↑ quote currency
 
-Timestamp and datetime are both Universal Time Coordinated (UTC).
+Timestamp and datetime are both Universal Time Coordinated (UTC) in milliseconds.
 
 Although some exchanges do mix-in orderbook’s top bid/ask prices into their tickers (and some even top bid/asks volumes) you should not treat ticker as a ``fetchOrderBook`` replacement. The main purpose of a ticker is to serve statistical data, as such, treat it as “live 24h OHLCV”. It is known that exchanges discourage frequent ``fetchTicker`` requests by imposing stricter rate limits on these queries. If you need a unified way to access bid/asks you should use ``fetchL[123]OrderBook`` family instead.
 
@@ -1414,7 +1416,7 @@ To get the individual ticker data from an exchange for each particular trading p
    (async () => {
        console.log (await (exchange.fetchTicker ('BTC/USD'))) // ticker for BTC/USD
        let symbols = Object.keys (exchange.markets)
-       let random = Math.floor ((Math.random () * symbols.length)) - 1
+       let random = Math.floor (Math.random () * (symbols.length - 1))
        console.log (exchange.fetchTicker (symbols[random])) // ticker for a random symbol
    }) ()
 
@@ -2804,6 +2806,7 @@ Notes
 .. |ethfinex| image:: https://user-images.githubusercontent.com/1294454/37555526-7018a77c-29f9-11e8-8835-8e415c038a18.jpg
 .. |exmo| image:: https://user-images.githubusercontent.com/1294454/27766491-1b0ea956-5eda-11e7-9225-40d67b481b8d.jpg
 .. |exx| image:: https://user-images.githubusercontent.com/1294454/37770292-fbf613d0-2de4-11e8-9f79-f2dc451b8ccb.jpg
+.. |fcoin| image:: https://user-images.githubusercontent.com/1294454/42244210-c8c42e1e-7f1c-11e8-8710-a5fb63b165c4.jpg
 .. |flowbtc| image:: https://user-images.githubusercontent.com/1294454/28162465-cd815d4c-67cf-11e7-8e57-438bea0523a2.jpg
 .. |foxbit| image:: https://user-images.githubusercontent.com/1294454/27991413-11b40d42-647f-11e7-91ee-78ced874dd09.jpg
 .. |fybse| image:: https://user-images.githubusercontent.com/1294454/27766512-31019772-5edb-11e7-8241-2e675e6797f1.jpg

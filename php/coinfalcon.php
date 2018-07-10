@@ -105,7 +105,7 @@ class coinfalcon extends Exchange {
     }
 
     public function parse_ticker ($ticker, $market = null) {
-        if (!$market) {
+        if ($market === null) {
             $marketId = $ticker['name'];
             $market = $this->marketsById[$marketId];
         }
@@ -191,7 +191,7 @@ class coinfalcon extends Exchange {
         $request = array (
             'market' => $market['id'],
         );
-        if ($since) {
+        if ($since !== null) {
             $request['since'] = $this->iso8601 ($since);
         }
         $response = $this->publicGetMarketsMarketTrades (array_merge ($request, $params));
@@ -218,7 +218,7 @@ class coinfalcon extends Exchange {
     }
 
     public function parse_order ($order, $market = null) {
-        if (!$market) {
+        if ($market === null) {
             $market = $this->marketsById[$order['market']];
         }
         $symbol = $market['symbol'];
@@ -291,10 +291,10 @@ class coinfalcon extends Exchange {
     public function fetch_open_orders ($symbol = null, $since = null, $limit = null, $params = array ()) {
         $this->load_markets();
         $request = array ();
-        if ($symbol) {
+        if ($symbol !== null) {
             $request['market'] = $this->market_id($symbol);
         }
-        if ($since) {
+        if ($since !== null) {
             $request['since_time'] = $this->iso8601 ($this->milliseconds ());
         }
         // TODO => test status=all if it works for closed orders too
@@ -320,7 +320,7 @@ class coinfalcon extends Exchange {
             } else {
                 $body = $this->json ($query);
             }
-            $seconds = $this->seconds ();
+            $seconds = (string) $this->seconds ();
             $requestPath = explode ('/', $url);
             $requestPath = mb_substr ($requestPath, 3);
             $requestPath = '/' . implode ('/', $requestPath);
