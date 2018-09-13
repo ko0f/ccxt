@@ -13,7 +13,7 @@ class btcalpha extends Exchange {
         return array_replace_recursive (parent::describe (), array (
             'id' => 'btcalpha',
             'name' => 'BTC-Alpha',
-            'countries' => 'US',
+            'countries' => array ( 'US' ),
             'version' => 'v1',
             'has' => array (
                 'fetchTicker' => false,
@@ -119,14 +119,12 @@ class btcalpha extends Exchange {
                 'amount' => 8,
                 'price' => intval ($market['price_precision']),
             );
-            $lot = pow (10, -$precision['amount']);
             $result[] = array (
                 'id' => $id,
                 'symbol' => $symbol,
                 'base' => $base,
                 'quote' => $quote,
                 'active' => true,
-                'lot' => $lot,
                 'precision' => $precision,
                 'limits' => array (
                     'amount' => array (

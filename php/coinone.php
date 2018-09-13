@@ -259,6 +259,9 @@ class coinone extends Exchange {
         $method = 'privatePostOrder' . $this->capitalize ($type) . $this->capitalize ($side);
         $response = $this->$method (array_merge ($request, $params));
         $id = $this->safe_string($response, 'orderId');
+        if ($id !== null) {
+            $id = strtoupper ($id);
+        }
         $timestamp = $this->milliseconds ();
         $cost = $price * $amount;
         $order = array (
@@ -332,9 +335,11 @@ class coinone extends Exchange {
     public function parse_order ($order, $market = null) {
         $info = $this->safe_value($order, 'info');
         $id = $this->safe_string($info, 'orderId');
+        if ($id !== null) {
+            $id = strtoupper ($id);
+        }
         $timestamp = intval ($info['timestamp']) * 1000;
-        $status = $this->safe_string($order, 'status');
-        $status = $this->parse_order_status($status);
+        $status = $this->parse_order_status($this->safe_string($order, 'status'));
         $cost = null;
         $side = $this->safe_string($info, 'type');
         if (mb_strpos ($side, 'ask') !== false) {

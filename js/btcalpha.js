@@ -12,7 +12,7 @@ module.exports = class btcalpha extends Exchange {
         return this.deepExtend (super.describe (), {
             'id': 'btcalpha',
             'name': 'BTC-Alpha',
-            'countries': 'US',
+            'countries': [ 'US' ],
             'version': 'v1',
             'has': {
                 'fetchTicker': false,
@@ -118,14 +118,12 @@ module.exports = class btcalpha extends Exchange {
                 'amount': 8,
                 'price': parseInt (market['price_precision']),
             };
-            let lot = Math.pow (10, -precision['amount']);
             result.push ({
                 'id': id,
                 'symbol': symbol,
                 'base': base,
                 'quote': quote,
                 'active': true,
-                'lot': lot,
                 'precision': precision,
                 'limits': {
                     'amount': {
@@ -193,7 +191,7 @@ module.exports = class btcalpha extends Exchange {
         await this.loadMarkets ();
         let market = undefined;
         let request = {};
-        if (typeof symbol !== 'undefined') {
+        if (symbol !== undefined) {
             market = this.market (symbol);
             request['pair'] = market['id'];
         }

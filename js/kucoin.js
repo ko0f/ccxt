@@ -4,6 +4,7 @@
 
 const Exchange = require ('./base/Exchange');
 const { ExchangeError, InvalidNonce, InvalidOrder, AuthenticationError, InsufficientFunds, OrderNotFound } = require ('./base/errors');
+const { TRUNCATE, DECIMAL_PLACES } = require ('./base/functions/number');
 
 //  ---------------------------------------------------------------------------
 
@@ -176,169 +177,179 @@ module.exports = class kucoin extends Exchange {
                 'limits': {
                     'amount': {
                         'min': {
-                            'BTC': 0.00001,
-                            'ETH': 0.00001,
-                            'BCH': 0.00001,
-                            'GAS': 0.1,
-                            'NEO': 0.01,
-                            'KCS': 1,
-                            'TMT': 1,
-                            'TFD': 1,
-                            'LALA': 1,
-                            'CS': 1,
-                            'DOCK': 1,
-                            'ETN': 1,
-                            'IHT': 1,
-                            'KICK': 1,
-                            'WAN': 1,
+                            'ABT': 1,
+                            'ACAT': 1,
                             'ACT': 1,
+                            'ADB': 1,
+                            'AGI': 10,
+                            'AION': 1,
+                            'AIX': 1,
+                            'AMB': 1,
+                            'AOA': 1,
                             'APH': 1,
-                            'BAX': 1,
-                            'DATX': 1,
-                            'DEB': 1,
-                            'ELEC': 1,
-                            'GO': 1,
-                            'HSR': 1,
-                            'IOTX': 1,
-                            'LOOM': 1,
-                            'LYM': 1,
-                            'MOBI': 1,
-                            'OMX': 1,
-                            'ONT': 1,
-                            'OPEN': 1,
-                            'QKC': 1,
-                            'SHL': 1,
-                            'SOUL': 1,
-                            'SPHTX': 1,
-                            'SRN': 1,
-                            'TKY': 1,
-                            'TOMO': 1,
-                            'TRAC': 1,
-                            'COV': 1,
-                            'DADI': 1,
-                            'ELF': 1,
-                            'LTC': 1,
-                            'MAN': 1,
-                            'PRL': 1,
-                            'STK': 1,
-                            'ZIL': 1,
-                            'ZPT': 1,
-                            'BPT': 1,
-                            'CAPP': 1,
-                            'POLY': 1,
-                            'TNC': 1,
-                            'XRB': 0.1,
+                            'ARN': 1,
+                            'ARY': 1,
                             'AXP': 1,
+                            'BAX': 1,
+                            'BCD': 0.001,
+                            'BCH': 0.00001,
+                            'BCPT': 1,
+                            'BNTY': 1,
+                            'BOS': 1,
+                            'BPT': 1,
+                            'BRD': 1,
+                            'BTC': 0.00001,
+                            'BTG': 0.001,
+                            'BTM': 1,
+                            'CAG': 1,
+                            'CanYaCoin': 1,
+                            'CAPP': 1,
+                            'CAT': 1,
+                            'CBC': 1,
+                            'CHP': 1,
+                            'CHSB': 1,
                             'COFI': 1,
+                            'COV': 1,
+                            'CPC': 1,
+                            'CS': 1,
+                            'CV': 10,
+                            'CVC': 0.1,
                             'CXO': 1,
+                            'DACC': 1,
+                            'DADI': 1,
+                            'DAG': 1,
+                            'DASH': 0.01,
+                            'DAT': 1,
+                            'DATX': 1,
+                            'DBC': 1,
+                            'DCC': 1,
+                            'DEB': 1,
+                            'DENT': 1,
+                            'DGB': 1,
+                            'DNA': 1,
+                            'DOCK': 1,
                             'DRGN': 1,
                             'DTA': 1,
-                            'ING': 1,
-                            'MTN': 1,
-                            'OCN': 10,
-                            'PARETO': 1,
-                            'SNC': 1,
-                            'TEL': 10,
-                            'WAX': 1,
-                            'ADB': 1,
-                            'BOS': 1,
-                            'HAT': 1,
-                            'HKN': 1,
-                            'HPB': 1,
-                            'IOST': 1,
-                            'ARY': 1,
-                            'DBC': 1,
-                            'KEY': 1,
-                            'GAT': 1,
-                            'RPX': 1,
-                            'ACAT': 1,
-                            'CV': 10,
-                            'QLC': 1,
-                            'R': 1,
-                            'TIO': 1,
-                            'ITC': 1,
-                            'AGI': 10,
-                            'EXY': 1,
-                            'MWAT': 1,
-                            'DENT': 1,
-                            'J8T': 1,
-                            'LOCI': 1,
-                            'CAT': 1,
-                            'ARN': 1,
-                            'CAN': 1,
-                            'EOS': 0.1,
-                            'ETC': 0.1,
-                            'JNT': 1,
-                            'PLAY': 1,
-                            'CHP': 1,
-                            'DASH': 0.01,
-                            'DNA': 1,
                             'EBTC': 1,
-                            'FOTA': 1,
-                            'PURA': 0.1,
-                            'UTK': 1,
-                            'CAG': 1,
-                            'GLA': 1,
-                            'HAV': 1,
-                            'SPF': 1,
-                            'TIME': 1,
-                            'ABT': 1,
-                            'BNTY': 1,
+                            'EDR': 1,
+                            'EGT': 1,
+                            'ELA': 1,
+                            'ELEC': 1,
+                            'ELF': 1,
                             'ELIX': 1,
                             'ENJ': 1,
-                            'AIX': 1,
-                            'VEN': 1,
-                            'AION': 1,
-                            'DAT': 1,
-                            'QTUM': 0.1,
-                            'WTC': 0.1,
-                            'DGB': 1,
-                            'SNOV': 1,
-                            'BRD': 1,
-                            'AMB': 1,
-                            'BTM': 1,
-                            'MANA': 1,
-                            'RHOC': 1,
-                            'XLR': 1,
-                            'XAS': 0.1,
-                            'CHSB': 1,
-                            'UKG': 1,
-                            'POLL': 1,
+                            'EOS': 0.1,
+                            'ETC': 0.1,
+                            'ETH': 0.00001,
+                            'ETN': 1,
+                            'EXY': 1,
                             'FLIXX': 0.1,
-                            'INS': 1,
-                            'OMG': 0.1,
-                            'TFL': 1,
-                            'WPR': 1,
-                            'LEND': 1,
-                            'KNC': 0.001,
-                            'BCD': 0.001,
-                            'LA': 1,
-                            'ONION': 1,
-                            'POWR': 0.1,
-                            'SNM': 1,
-                            'BTG': 0.001,
-                            'PBL': 1,
-                            'MOD': 0.1,
-                            'PPT': 0.1,
-                            'BCPT': 1,
+                            'FOTA': 1,
+                            'GAS': 0.1,
+                            'GAT': 1,
+                            'GLA': 1,
+                            'GO': 1,
                             'GVT': 0.1,
+                            'HAV': 1,
+                            'HKN': 1,
+                            'HPB': 1,
                             'HST': 0.1,
-                            'SNT': 0.1,
-                            'SUB': 0.1,
-                            'NEBL': 0.1,
-                            'CVC': 0.1,
+                            'IHT': 1,
+                            'ING': 1,
+                            'INS': 1,
+                            'IOST': 1,
+                            'IOTX': 1,
+                            'ITC': 1,
+                            'J8T': 1,
+                            'JNT': 1,
+                            'KCS': 1,
+                            'KEY': 1,
+                            'KICK': 1,
+                            'KNC': 0.001,
+                            'LA': 1,
+                            'LALA': 1,
+                            'LEND': 1,
+                            'LOCI': 1,
+                            'LOOM': 1,
+                            'LTC': 1,
+                            'LYM': 1,
+                            'MAN': 1,
+                            'MANA': 1,
+                            'MOBI': 1,
+                            'MOD': 0.1,
                             'MTH': 1,
+                            'MTN': 1,
+                            'MWAT': 1,
+                            'NANO': 0.1,
+                            'NEBL': 0.1,
+                            'NEO': 0.01,
                             'NULS': 0.1,
+                            'NUSD': 1,
+                            'OCN': 10,
+                            'OLT': 1,
+                            'OMG': 0.1,
+                            'OMX': 1,
+                            'ONION': 1,
+                            'ONT': 1,
+                            'OPEN': 1,
+                            'PARETO': 1,
                             'PAY': 0.1,
+                            'PBL': 1,
+                            'PLAY': 1,
+                            'POLL': 1,
+                            'POLY': 1,
+                            'POWR': 0.1,
+                            'PPT': 0.1,
+                            'PRL': 1,
+                            'PURA': 0.1,
+                            'QKC': 1,
+                            'QLC': 1,
+                            'QSP': 0.1,
+                            'QTUM': 0.1,
+                            'R': 1,
                             'RDN': 1,
                             'REQ': 1,
-                            'QSP': 0.1,
+                            'RHOC': 1,
+                            'RPX': 1,
+                            'SHL': 1,
+                            'SNC': 1,
+                            'SNM': 1,
+                            'SNOV': 1,
+                            'SNT': 0.1,
+                            'SOUL': 1,
+                            'SPF': 1,
+                            'SPHTX': 1,
+                            'SRN': 1,
+                            'STK': 1,
+                            'SUB': 0.1,
+                            'TEL': 10,
+                            'TFD': 1,
+                            'TFL': 1,
+                            'TIME': 1,
+                            'TIO': 1,
+                            'TKY': 1,
+                            'TMT': 1,
+                            'TNC': 1,
+                            'TOMO': 1,
+                            'TRAC': 1,
+                            'UKG': 1,
+                            'UTK': 1,
+                            'WAN': 1,
+                            'WAX': 1,
+                            'WPR': 1,
+                            'WTC': 0.1,
+                            'XAS': 0.1,
+                            'XLM': 1,
+                            'XLR': 1,
+                            'ZIL': 1,
+                            'ZINC': 1,
+                            'ZPT': 1,
                         },
                     },
                 },
             },
             'commonCurrencies': {
-                'CAN': 'CanYa',
+                'CAN': 'CanYaCoin',
                 'XRB': 'NANO',
             },
         });
@@ -405,7 +416,6 @@ module.exports = class kucoin extends Exchange {
                 'taker': this.safeFloat (market, 'feeRate'),
                 'maker': this.safeFloat (market, 'feeRate'),
                 'info': market,
-                'lot': Math.pow (10, -precision['amount']),
                 'precision': precision,
                 'limits': {
                     'amount': {
@@ -518,7 +528,7 @@ module.exports = class kucoin extends Exchange {
         let request = {
             'symbol': market['id'],
         };
-        if (typeof limit !== 'undefined') {
+        if (limit !== undefined) {
             request['limit'] = limit;
         }
         let response = await this.publicGetOpenOrders (this.extend (request, params));
@@ -543,18 +553,18 @@ module.exports = class kucoin extends Exchange {
 
     parseOrder (order, market = undefined) {
         let side = this.safeValue (order, 'direction');
-        if (typeof side === 'undefined')
+        if (side === undefined)
             side = order['type'];
-        if (typeof side !== 'undefined')
+        if (side !== undefined)
             side = side.toLowerCase ();
         let orderId = this.safeString (order, 'orderOid');
-        if (typeof orderId === 'undefined')
+        if (orderId === undefined)
             orderId = this.safeString (order, 'oid');
         // do not confuse trades with orders
         let trades = undefined;
         if ('dealOrders' in order)
             trades = this.safeValue (order['dealOrders'], 'datas');
-        if (typeof trades !== 'undefined') {
+        if (trades !== undefined) {
             trades = this.parseTrades (trades, market);
             for (let i = 0; i < trades.length; i++) {
                 trades[i]['side'] = side;
@@ -562,7 +572,7 @@ module.exports = class kucoin extends Exchange {
             }
         }
         let symbol = undefined;
-        if (typeof market !== 'undefined') {
+        if (market !== undefined) {
             symbol = market['symbol'];
         } else {
             symbol = order['coinType'] + '/' + order['coinTypePair'];
@@ -570,29 +580,33 @@ module.exports = class kucoin extends Exchange {
         let timestamp = this.safeValue (order, 'createdAt');
         let remaining = this.safeFloat (order, 'pendingAmount');
         let status = undefined;
-        if (this.safeValue (order, 'isActive', true)) {
-            status = 'open';
+        if ('status' in order) {
+            status = order['status'];
         } else {
-            status = 'closed';
+            if (this.safeValue (order, 'isActive', true)) {
+                status = 'open';
+            } else {
+                status = 'closed';
+            }
         }
         let filled = this.safeFloat (order, 'dealAmount');
         let amount = this.safeFloat (order, 'amount');
         let cost = this.safeFloat (order, 'dealValue');
-        if (typeof cost === 'undefined')
+        if (cost === undefined)
             cost = this.safeFloat (order, 'dealValueTotal');
-        if (typeof status === 'undefined') {
-            if (typeof remaining !== 'undefined')
+        if (status === undefined) {
+            if (remaining !== undefined)
                 if (remaining > 0)
                     status = 'open';
                 else
                     status = 'closed';
         }
-        if (typeof filled === 'undefined') {
-            if (typeof status !== 'undefined')
+        if (filled === undefined) {
+            if (status !== undefined)
                 if (status === 'closed')
                     filled = this.safeFloat (order, 'amount');
         } else if (filled === 0.0) {
-            if (typeof trades !== 'undefined') {
+            if (trades !== undefined) {
                 cost = 0;
                 for (let i = 0; i < trades.length; i++) {
                     filled += trades[i]['amount'];
@@ -603,44 +617,44 @@ module.exports = class kucoin extends Exchange {
         // kucoin price and amount fields have varying names
         // thus the convoluted spaghetti code below
         let price = undefined;
-        if (typeof filled !== 'undefined') {
+        if (filled !== undefined) {
             // if the order was filled at least for some part
             if (filled > 0.0) {
                 price = this.safeFloat (order, 'price');
-                if (typeof price === 'undefined')
+                if (price === undefined)
                     price = this.safeFloat (order, 'dealPrice');
-                if (typeof price === 'undefined')
+                if (price === undefined)
                     price = this.safeFloat (order, 'dealPriceAverage');
             } else {
                 // it's an open order, not filled yet, use the initial price
                 price = this.safeFloat (order, 'orderPrice');
-                if (typeof price === 'undefined')
+                if (price === undefined)
                     price = this.safeFloat (order, 'price');
             }
-            if (typeof price !== 'undefined') {
-                if (typeof cost === 'undefined')
+            if (price !== undefined) {
+                if (cost === undefined)
                     cost = price * filled;
             }
-            if (typeof amount === 'undefined') {
-                if (typeof remaining !== 'undefined')
+            if (amount === undefined) {
+                if (remaining !== undefined)
                     amount = this.sum (filled, remaining);
-            } else if (typeof remaining === 'undefined') {
+            } else if (remaining === undefined) {
                 remaining = amount - filled;
             }
         }
         if (status === 'open') {
-            if ((typeof cost === 'undefined') || (cost === 0.0))
-                if (typeof price !== 'undefined')
-                    if (typeof amount !== 'undefined')
+            if ((cost === undefined) || (cost === 0.0))
+                if (price !== undefined)
+                    if (amount !== undefined)
                         cost = amount * price;
         }
         let feeCurrency = undefined;
-        if (typeof market !== 'undefined') {
+        if (market !== undefined) {
             feeCurrency = (side === 'sell') ? market['quote'] : market['base'];
         } else {
             let feeCurrencyField = (side === 'sell') ? 'coinTypePair' : 'coinType';
             let feeCurrency = this.safeString (order, feeCurrencyField);
-            if (typeof feeCurrency !== 'undefined') {
+            if (feeCurrency !== undefined) {
                 if (feeCurrency in this.currencies_by_id)
                     feeCurrency = this.currencies_by_id[feeCurrency]['code'];
             }
@@ -673,10 +687,10 @@ module.exports = class kucoin extends Exchange {
     }
 
     async fetchOrder (id, symbol = undefined, params = {}) {
-        if (typeof symbol === 'undefined')
+        if (symbol === undefined)
             throw new ExchangeError (this.id + ' fetchOrder requires a symbol argument');
         let orderType = this.safeValue (params, 'type');
-        if (typeof orderType === 'undefined')
+        if (orderType === undefined)
             throw new ExchangeError (this.id + ' fetchOrder requires a type parameter ("BUY" or "SELL")');
         await this.loadMarkets ();
         let market = this.market (symbol);
@@ -708,7 +722,7 @@ module.exports = class kucoin extends Exchange {
             }), market);
             result.push (order);
         }
-        let symbol = (typeof market !== 'undefined') ? market['symbol'] : undefined;
+        let symbol = (market !== undefined) ? market['symbol'] : undefined;
         return this.filterBySymbolSinceLimit (result, symbol, since, limit);
     }
 
@@ -716,7 +730,7 @@ module.exports = class kucoin extends Exchange {
         await this.loadMarkets ();
         let marketId = undefined;
         let market = undefined;
-        if (typeof symbol !== 'undefined') {
+        if (symbol !== undefined) {
             market = this.market (symbol);
             marketId = market['id'];
         } else {
@@ -727,10 +741,10 @@ module.exports = class kucoin extends Exchange {
         };
         let response = await this.privateGetOrderActiveMap (this.extend (request, params));
         let sell = this.safeValue (response['data'], 'SELL');
-        if (typeof sell === 'undefined')
+        if (sell === undefined)
             sell = [];
         let buy = this.safeValue (response['data'], 'BUY');
-        if (typeof buy === 'undefined')
+        if (buy === undefined)
             buy = [];
         let orders = this.arrayConcat (sell, buy);
         //
@@ -756,13 +770,13 @@ module.exports = class kucoin extends Exchange {
         let request = {};
         await this.loadMarkets ();
         let market = undefined;
-        if (typeof symbol !== 'undefined') {
+        if (symbol !== undefined) {
             market = this.market (symbol);
             request['symbol'] = market['id'];
         }
-        if (typeof since !== 'undefined')
+        if (since !== undefined)
             request['since'] = since;
-        if (typeof limit !== 'undefined')
+        if (limit !== undefined)
             request['limit'] = limit;
         let response = await this.privateGetOrderDealt (this.extend (request, params));
         let orders = response['data']['datas'];
@@ -795,8 +809,8 @@ module.exports = class kucoin extends Exchange {
         let request = {
             'symbol': market['id'],
             'type': side.toUpperCase (),
-            'price': this.truncate (price, this.currencies[quote]['precision']),
-            'amount': this.truncate (amount, this.currencies[base]['precision']),
+            'price': this.decimalToPrecision (price, TRUNCATE, this.currencies[quote]['precision'], DECIMAL_PLACES),
+            'amount': this.decimalToPrecision (amount, TRUNCATE, this.currencies[base]['precision'], DECIMAL_PLACES),
         };
         price = parseFloat (price);
         amount = parseFloat (amount);
@@ -804,14 +818,11 @@ module.exports = class kucoin extends Exchange {
         let response = await this.privatePostOrder (this.extend (request, params));
         let orderId = this.safeString (response['data'], 'orderOid');
         let timestamp = this.safeInteger (response, 'timestamp');
-        let iso8601 = undefined;
-        if (typeof timestamp !== 'undefined')
-            iso8601 = this.iso8601 (timestamp);
         let order = {
             'info': response,
             'id': orderId,
             'timestamp': timestamp,
-            'datetime': iso8601,
+            'datetime': this.iso8601 (timestamp),
             'lastTradeTimestamp': undefined,
             'symbol': market['symbol'],
             'type': type,
@@ -834,7 +845,7 @@ module.exports = class kucoin extends Exchange {
         // docs say symbol is required, but it seems to be optional
         // you can cancel all orders, or filter by symbol or type or both
         let request = {};
-        if (typeof symbol !== 'undefined') {
+        if (symbol !== undefined) {
             await this.loadMarkets ();
             let market = this.market (symbol);
             request['symbol'] = market['id'];
@@ -859,7 +870,7 @@ module.exports = class kucoin extends Exchange {
     }
 
     async cancelOrder (id, symbol = undefined, params = {}) {
-        if (typeof symbol === 'undefined')
+        if (symbol === undefined)
             throw new ExchangeError (this.id + ' cancelOrder requires a symbol');
         await this.loadMarkets ();
         let market = this.market (symbol);
@@ -901,7 +912,7 @@ module.exports = class kucoin extends Exchange {
     parseTicker (ticker, market = undefined) {
         let timestamp = ticker['datetime'];
         let symbol = undefined;
-        if (typeof market === 'undefined') {
+        if (market === undefined) {
             let marketId = ticker['coinType'] + '-' + ticker['coinTypePair'];
             if (marketId in this.markets_by_id) {
                 market = this.markets_by_id[marketId];
@@ -911,11 +922,11 @@ module.exports = class kucoin extends Exchange {
         let change = this.safeFloat (ticker, 'change');
         let last = this.safeFloat (ticker, 'lastDealPrice');
         let open = undefined;
-        if (typeof last !== 'undefined')
-            if (typeof change !== 'undefined')
+        if (last !== undefined)
+            if (change !== undefined)
                 open = last - change;
         let changePercentage = this.safeFloat (ticker, 'changeRate');
-        if (typeof market !== 'undefined') {
+        if (market !== undefined) {
             symbol = market['symbol'];
         }
         return {
@@ -991,18 +1002,18 @@ module.exports = class kucoin extends Exchange {
             order = this.safeString (trade, 'orderOid');
             id = this.safeString (trade, 'oid');
             side = this.safeString (trade, 'direction');
-            if (typeof side !== 'undefined')
+            if (side !== undefined)
                 side = side.toLowerCase ();
             price = this.safeFloat (trade, 'dealPrice');
             amount = this.safeFloat (trade, 'amount');
             cost = this.safeFloat (trade, 'dealValue');
             let feeCurrency = undefined;
-            if (typeof market !== 'undefined') {
+            if (market !== undefined) {
                 feeCurrency = (side === 'sell') ? market['quote'] : market['base'];
             } else {
                 let feeCurrencyField = (side === 'sell') ? 'coinTypePair' : 'coinType';
                 let feeCurrency = this.safeString (order, feeCurrencyField);
-                if (typeof feeCurrency !== 'undefined') {
+                if (feeCurrency !== undefined) {
                     if (feeCurrency in this.currencies_by_id)
                         feeCurrency = this.currencies_by_id[feeCurrency]['code'];
                 }
@@ -1013,7 +1024,7 @@ module.exports = class kucoin extends Exchange {
             };
         }
         let symbol = undefined;
-        if (typeof market !== 'undefined')
+        if (market !== undefined)
             symbol = market['symbol'];
         return {
             'id': id,
@@ -1033,6 +1044,9 @@ module.exports = class kucoin extends Exchange {
 
     async fetchTrades (symbol, since = undefined, limit = undefined, params = {}) {
         await this.loadMarkets ();
+        if (limit === undefined) {
+            limit = 100; // default to 100 even if it was explicitly set to undefined by the user
+        }
         let market = this.market (symbol);
         let response = await this.publicGetOpenDealOrders (this.extend ({
             'symbol': market['id'],
@@ -1046,14 +1060,14 @@ module.exports = class kucoin extends Exchange {
         // it improperly mimics fetchMyTrades with closed orders
         // kucoin does not have any means of fetching personal trades at all
         // this will effectively simplify current convoluted implementations of parseOrder and parseTrade
-        if (typeof symbol === 'undefined')
+        if (symbol === undefined)
             throw new ExchangeError (this.id + ' fetchMyTrades is deprecated and requires a symbol argument');
         await this.loadMarkets ();
         let market = this.market (symbol);
         let request = {
             'symbol': market['id'],
         };
-        if (typeof limit !== 'undefined')
+        if (limit !== undefined)
             request['limit'] = limit;
         let response = await this.privateGetDealOrders (this.extend (request, params));
         return this.parseTrades (response['data']['datas'], market, since, limit);
@@ -1072,14 +1086,14 @@ module.exports = class kucoin extends Exchange {
         // convert 'resolution' to minutes in order to calculate 'from' later
         let minutes = resolution;
         if (minutes === 'D') {
-            if (typeof limit === 'undefined')
+            if (limit === undefined)
                 limit = 30; // 30 days, 1 month
             minutes = 1440;
         } else if (minutes === 'W') {
-            if (typeof limit === 'undefined')
+            if (limit === undefined)
                 limit = 52; // 52 weeks, 1 year
             minutes = 10080;
-        } else if (typeof limit === 'undefined') {
+        } else if (limit === undefined) {
             // last 1440 periods, whatever the duration of the period is
             // for 1m it equals 1 day (24 hours)
             // for 5m it equals 5 days
@@ -1088,7 +1102,7 @@ module.exports = class kucoin extends Exchange {
         }
         let start = end - limit * minutes * 60;
         // if 'since' has been supplied by user
-        if (typeof since !== 'undefined') {
+        if (since !== undefined) {
             start = parseInt (since / 1000); // convert milliseconds to seconds
             end = Math.min (end, this.sum (start, limit * minutes * 60));
         }
@@ -1194,7 +1208,7 @@ module.exports = class kucoin extends Exchange {
     }
 
     handleErrors (code, reason, url, method, headers, body, response = undefined) {
-        if (typeof response !== 'undefined') {
+        if (response !== undefined) {
             // JS callchain parses body beforehand
             this.throwExceptionOnError (response);
         } else if (body && (body[0] === '{')) {

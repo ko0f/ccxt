@@ -38,8 +38,8 @@ class rightbtc extends Exchange {
                 'api' => 'https://www.rightbtc.com/api',
                 'www' => 'https://www.rightbtc.com',
                 'doc' => array (
-                    'https://www.rightbtc.com/api/trader',
-                    'https://www.rightbtc.com/api/public',
+                    'https://52.53.159.206/api/trader/',
+                    'https://support.rightbtc.com/hc/en-us/articles/360012809412',
                 ),
                 // eslint-disable-next-line no-useless-escape
                 // 'fees' => 'https://www.rightbtc.com/\#\!/support/fee',
@@ -47,7 +47,7 @@ class rightbtc extends Exchange {
             'api' => array (
                 'public' => array (
                     'get' => array (
-                        'getAssetsTradingPairs/zh',
+                        // 'getAssetsTradingPairs/zh', // 404
                         'trading_pairs',
                         'ticker/{trading_pair}',
                         'tickers',
@@ -123,20 +123,24 @@ class rightbtc extends Exchange {
                     ),
                 ),
             ),
+            'commonCurrencies' => array (
+                'XRB' => 'NANO',
+            ),
             'exceptions' => array (
                 'ERR_USERTOKEN_NOT_FOUND' => '\\ccxt\\AuthenticationError',
                 'ERR_ASSET_NOT_EXISTS' => '\\ccxt\\ExchangeError',
                 'ERR_ASSET_NOT_AVAILABLE' => '\\ccxt\\ExchangeError',
                 'ERR_BALANCE_NOT_ENOUGH' => '\\ccxt\\InsufficientFunds',
                 'ERR_CREATE_ORDER' => '\\ccxt\\InvalidOrder',
+                'ERR_CANDLESTICK_DATA' => '\\ccxt\\ExchangeError',
             ),
         ));
     }
 
     public function fetch_markets () {
         $response = $this->publicGetTradingPairs ();
-        $zh = $this->publicGetGetAssetsTradingPairsZh ();
-        $markets = array_merge ($zh['result'], $response['status']['message']);
+        // $zh = $this->publicGetGetAssetsTradingPairsZh ();
+        $markets = array_merge ($response['status']['message']);
         $marketIds = is_array ($markets) ? array_keys ($markets) : array ();
         $result = array ();
         for ($i = 0; $i < count ($marketIds); $i++) {
@@ -247,11 +251,17 @@ class rightbtc extends Exchange {
         return $result;
     }
 
-    public function fetch_order_book ($symbol, $params = array ()) {
+    public function fetch_order_book ($symbol, $limit = null, $params = array ()) {
         $this->load_markets();
-        $response = $this->publicGetDepthTradingPair (array_merge (array (
+        $request = array (
             'trading_pair' => $this->market_id($symbol),
-        ), $params));
+        );
+        $method = 'publicGetDepthTradingPair';
+        if ($limit !== null) {
+            $method .= 'Count';
+            $request['count'] = $limit;
+        }
+        $response = $this->$method (array_merge ($request, $params));
         $bidsasks = array ();
         $types = ['bid', 'ask'];
         for ($ti = 0; $ti < count ($types); $ti++) {
@@ -283,9 +293,7 @@ class rightbtc extends Exchange {
         //
         $timestamp = $this->safe_integer($trade, 'date');
         if ($timestamp === null) {
-            if (is_array ($trade) && array_key_exists ('created_at', $trade)) {
-                $timestamp = $this->parse8601 ($trade['created_at']);
-            }
+            $timestamp = $this->parse8601 ($this->safe_string($trade, 'created_at'));
         }
         $id = $this->safe_string($trade, 'tid');
         $id = $this->safe_string($trade, 'trade_id', $id);
@@ -480,9 +488,7 @@ class rightbtc extends Exchange {
         //     }
         //
         $id = $this->safe_string($order, 'id');
-        $status = $this->safe_value($order, 'status');
-        if ($status !== null)
-            $status = $this->parse_order_status($status);
+        $status = $this->parse_order_status($this->safe_string($order, 'status'));
         $marketId = $this->safe_string($order, 'trading_pair');
         if ($market === null) {
             if (is_array ($this->markets_by_id) && array_key_exists ($marketId, $this->markets_by_id)) {
@@ -744,13 +750,14 @@ class rightbtc extends Exchange {
             return; // fallback to default error handler
         if (($body[0] === '{') || ($body[0] === '[')) {
             $response = json_decode ($body, $as_associative_array = true);
-            if (is_array ($response) && array_key_exists ('success', $response)) {
+            $status = $this->safe_value($response, 'status');
+            if ($status !== null) {
                 //
-                //     array ("status":{"$success":0,"$message":"ERR_USERTOKEN_NOT_FOUND")}
+                //     array ("$status":{"$success":0,"$message":"ERR_USERTOKEN_NOT_FOUND")}
                 //
-                $success = $this->safe_string($response, 'success');
+                $success = $this->safe_string($status, 'success');
                 if ($success !== '1') {
-                    $message = $this->safe_string($response, 'message');
+                    $message = $this->safe_string($status, 'message');
                     $feedback = $this->id . ' ' . $this->json ($response);
                     $exceptions = $this->exceptions;
                     if (is_array ($exceptions) && array_key_exists ($message, $exceptions)) {

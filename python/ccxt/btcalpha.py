@@ -25,7 +25,7 @@ class btcalpha (Exchange):
         return self.deep_extend(super(btcalpha, self).describe(), {
             'id': 'btcalpha',
             'name': 'BTC-Alpha',
-            'countries': 'US',
+            'countries': ['US'],
             'version': 'v1',
             'has': {
                 'fetchTicker': False,
@@ -130,14 +130,12 @@ class btcalpha (Exchange):
                 'amount': 8,
                 'price': int(market['price_precision']),
             }
-            lot = math.pow(10, -precision['amount'])
             result.append({
                 'id': id,
                 'symbol': symbol,
                 'base': base,
                 'quote': quote,
                 'active': True,
-                'lot': lot,
                 'precision': precision,
                 'limits': {
                     'amount': {

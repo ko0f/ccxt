@@ -67,6 +67,7 @@ class bibox (Exchange):
                     'https://github.com/Biboxcom/api_reference/wiki/api_reference',
                 ],
                 'fees': 'https://bibox.zendesk.com/hc/en-us/articles/115004417013-Fee-Structure-on-Bibox',
+                'referral': 'https://www.bibox.com/signPage?id=11114745&lang=en',
             },
             'api': {
                 'public': {
@@ -115,6 +116,7 @@ class bibox (Exchange):
             },
             'commonCurrencies': {
                 'KEY': 'Bihu',
+                'PAI': 'PCHAIN',
             },
         })
 
@@ -145,7 +147,6 @@ class bibox (Exchange):
                 'quoteId': quote,
                 'active': True,
                 'info': market,
-                'lot': math.pow(10, -precision['amount']),
                 'precision': precision,
                 'limits': {
                     'amount': {
@@ -180,13 +181,14 @@ class bibox (Exchange):
         open = None
         if (last is not None) and(change is not None):
             open = last - change
-        iso8601 = None
-        if timestamp is not None:
-            iso8601 = self.iso8601(timestamp)
+        percentage = self.safe_string(ticker, 'percent')
+        if percentage is not None:
+            percentage = percentage.replace('%', '')
+            percentage = float(percentage)
         return {
             'symbol': symbol,
             'timestamp': timestamp,
-            'datetime': iso8601,
+            'datetime': self.iso8601(timestamp),
             'high': self.safe_float(ticker, 'high'),
             'low': self.safe_float(ticker, 'low'),
             'bid': self.safe_float(ticker, 'buy'),
@@ -199,7 +201,7 @@ class bibox (Exchange):
             'last': last,
             'previousClose': None,
             'change': change,
-            'percentage': self.safe_string(ticker, 'percent'),
+            'percentage': percentage,
             'average': None,
             'baseVolume': baseVolume,
             'quoteVolume': self.safe_float(ticker, 'amount'),
@@ -218,8 +220,10 @@ class bibox (Exchange):
     def parse_tickers(self, rawTickers, symbols=None):
         tickers = []
         for i in range(0, len(rawTickers)):
-            tickers.append(self.parse_ticker(rawTickers[i]))
-        return self.filter_by_array(tickers, 'symbol', symbols)
+            ticker = self.parse_ticker(rawTickers[i])
+            if (symbols is None) or (self.in_array(ticker['symbol'], symbols)):
+                tickers.append(ticker)
+        return tickers
 
     async def fetch_tickers(self, symbols=None, params={}):
         response = await self.publicGetMdata(self.extend({
@@ -462,11 +466,10 @@ class bibox (Exchange):
         type = 'market' if (order['order_type'] == 1) else 'limit'
         timestamp = order['createdAt']
         price = self.safe_float(order, 'price')
-        price = self.safe_float(order, 'deal_price', price)
+        average = self.safe_float(order, 'deal_price')
         filled = self.safe_float(order, 'deal_amount')
         amount = self.safe_float(order, 'amount')
-        cost = self.safe_float(order, 'money')
-        cost = self.safe_float(order, 'deal_money', cost)
+        cost = self.safe_float_2(order, 'deal_money', 'money')
         remaining = None
         if filled is not None:
             if amount is not None:
@@ -474,9 +477,7 @@ class bibox (Exchange):
             if cost is None:
                 cost = price * filled
         side = 'buy' if (order['order_side'] == 1) else 'sell'
-        status = self.safe_string(order, 'status')
-        if status is not None:
-            status = self.parse_order_status(status)
+        status = self.parse_order_status(self.safe_string(order, 'status'))
         result = {
             'info': order,
             'id': self.safe_string(order, 'id'),
@@ -489,6 +490,7 @@ class bibox (Exchange):
             'price': price,
             'amount': amount,
             'cost': cost if cost else float(price) * filled,
+            'average': average,
             'filled': filled,
             'remaining': remaining,
             'status': status,
@@ -573,9 +575,12 @@ class bibox (Exchange):
             }, params),
         })
         address = self.safe_string(response, 'result')
+        tag = None  # todo: figure self out
         result = {
-            'info': response,
+            'currency': code,
             'address': address,
+            'tag': tag,
+            'info': response,
         }
         return result
 
@@ -606,8 +611,8 @@ class bibox (Exchange):
         }
 
     async def fetch_funding_fees(self, codes=None, params={}):
-        #  by default it will try load withdrawal fees of all currencies(with separate requests)
-        #  however if you define codes = ['ETH', 'BTC'] in args it will only load those
+        # by default it will try load withdrawal fees of all currencies(with separate requests)
+        # however if you define codes = ['ETH', 'BTC'] in args it will only load those
         await self.load_markets()
         withdrawFees = {}
         info = {}

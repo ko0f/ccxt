@@ -37,13 +37,14 @@ const Exchange  = require ('./js/base/Exchange')
 //-----------------------------------------------------------------------------
 // this is updated by vss.js when building
 
-const version = '1.16.57'
+const version = '1.17.264'
 
 Exchange.ccxtVersion = version
 
 //-----------------------------------------------------------------------------
 
 const exchanges = {
+<<<<<<< HEAD
     // '_1broker':                require ('./js/_1broker.js'),
     // '_1btcxe':                 require ('./js/_1btcxe.js'),
     // 'acx':                     require ('./js/acx.js'),
@@ -52,6 +53,17 @@ const exchanges = {
     // 'anybits':                 require ('./js/anybits.js'),
     // 'bibox':                   require ('./js/bibox.js'),
     // 'bigone':                  require ('./js/bigone.js'),
+=======
+    '_1broker':                require ('./js/_1broker.js'),
+    '_1btcxe':                 require ('./js/_1btcxe.js'),
+    'acx':                     require ('./js/acx.js'),
+    'allcoin':                 require ('./js/allcoin.js'),
+    'anxpro':                  require ('./js/anxpro.js'),
+    'anybits':                 require ('./js/anybits.js'),
+    'bcex':                    require ('./js/bcex.js'),
+    'bibox':                   require ('./js/bibox.js'),
+    'bigone':                  require ('./js/bigone.js'),
+>>>>>>> 0d01d6f6bb0d60bb60dd1a9d2f86687fcb4ec4fb
     'binance':                 require ('./js/binance.js'),
     // 'bit2c':                   require ('./js/bit2c.js'),
     // 'bitbank':                 require ('./js/bitbank.js'),
@@ -59,6 +71,7 @@ const exchanges = {
     'bitfinex':                require ('./js/bitfinex.js'),
     'bitfinex2':               require ('./js/bitfinex2.js'),
     'bitflyer':                require ('./js/bitflyer.js'),
+    'bitforex':                require ('./js/bitforex.js'),
     'bithumb':                 require ('./js/bithumb.js'),
     // 'bitkk':                   require ('./js/bitkk.js'),
     // 'bitlish':                 require ('./js/bitlish.js'),
@@ -89,6 +102,7 @@ const exchanges = {
     // 'chilebit':                require ('./js/chilebit.js'),
     // 'cobinhood':               require ('./js/cobinhood.js'),
     'coinbase':                require ('./js/coinbase.js'),
+    'coinbaseprime':           require ('./js/coinbaseprime.js'),
     'coinbasepro':             require ('./js/coinbasepro.js'),
     // 'coincheck':               require ('./js/coincheck.js'),
     // 'coinegg':                 require ('./js/coinegg.js'),
@@ -151,6 +165,7 @@ const exchanges = {
     'okex':                    require ('./js/okex.js'),
     // 'paymium':                 require ('./js/paymium.js'),
     'poloniex':                require ('./js/poloniex.js'),
+<<<<<<< HEAD
     // 'qryptos':                 require ('./js/qryptos.js'),
     // 'quadrigacx':              require ('./js/quadrigacx.js'),
     // 'quoinex':                 require ('./js/quoinex.js'),
@@ -166,6 +181,25 @@ const exchanges = {
     // 'virwox':                  require ('./js/virwox.js'),
     // 'wex':                     require ('./js/wex.js'),
     // 'xbtce':                   require ('./js/xbtce.js'),
+=======
+    'qryptos':                 require ('./js/qryptos.js'),
+    'quadrigacx':              require ('./js/quadrigacx.js'),
+    'quoinex':                 require ('./js/quoinex.js'),
+    'rightbtc':                require ('./js/rightbtc.js'),
+    'southxchange':            require ('./js/southxchange.js'),
+    'surbitcoin':              require ('./js/surbitcoin.js'),
+    'theocean':                require ('./js/theocean.js'),
+    'therock':                 require ('./js/therock.js'),
+    'tidebit':                 require ('./js/tidebit.js'),
+    'tidex':                   require ('./js/tidex.js'),
+    'uex':                     require ('./js/uex.js'),
+    'urdubit':                 require ('./js/urdubit.js'),
+    'vaultoro':                require ('./js/vaultoro.js'),
+    'vbtc':                    require ('./js/vbtc.js'),
+    'virwox':                  require ('./js/virwox.js'),
+    'wex':                     require ('./js/wex.js'),
+    'xbtce':                   require ('./js/xbtce.js'),
+>>>>>>> 0d01d6f6bb0d60bb60dd1a9d2f86687fcb4ec4fb
     'yobit':                   require ('./js/yobit.js'),
     // 'yunbi':                   require ('./js/yunbi.js'),
     // 'zaif':                    require ('./js/zaif.js'),

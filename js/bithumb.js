@@ -87,7 +87,6 @@ module.exports = class bithumb extends Exchange {
                     'base': base,
                     'quote': quote,
                     'info': market,
-                    'lot': undefined,
                     'active': true,
                     'precision': {
                         'amount': undefined,
@@ -139,7 +138,7 @@ module.exports = class bithumb extends Exchange {
         let request = {
             'currency': market['base'],
         };
-        if (typeof limit !== 'undefined')
+        if (limit !== undefined)
             request['count'] = limit; // max = 50
         let response = await this.publicGetOrderbookCurrency (this.extend (request, params));
         let orderbook = response['data'];
@@ -354,7 +353,7 @@ module.exports = class bithumb extends Exchange {
                 //     {"status":"5100","message":"After May 23th, recent_transactions is no longer, hence users will not be able to connect to recent_transactions"}
                 //
                 let status = this.safeString (response, 'status');
-                if (typeof status !== 'undefined') {
+                if (status !== undefined) {
                     if (status === '0000')
                         return; // no error
                     const feedback = this.id + ' ' + this.json (response);

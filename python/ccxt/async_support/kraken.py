@@ -24,6 +24,8 @@ from ccxt.base.errors import CancelPending
 from ccxt.base.errors import DDoSProtection
 from ccxt.base.errors import ExchangeNotAvailable
 from ccxt.base.errors import InvalidNonce
+from ccxt.base.decimal_to_precision import TRUNCATE
+from ccxt.base.decimal_to_precision import DECIMAL_PLACES
 
 
 class kraken (Exchange):
@@ -35,6 +37,8 @@ class kraken (Exchange):
             'countries': ['US'],
             'version': '0',
             'rateLimit': 3000,
+            'certified': True,
+            'parseJsonResponse': False,
             'has': {
                 'createDepositAddress': True,
                 'fetchDepositAddress': True,
@@ -217,25 +221,18 @@ class kraken (Exchange):
                 'EAPI:Rate limit exceeded': DDoSProtection,
                 'EQuery:Unknown asset': ExchangeError,
                 'EGeneral:Internal error': ExchangeNotAvailable,
+                'EGeneral:Temporary lockout': DDoSProtection,
             },
         })
 
     def cost_to_precision(self, symbol, cost):
-        return self.truncate(float(cost), self.markets[symbol]['precision']['price'])
+        return self.decimal_to_precision(cost, TRUNCATE, self.markets[symbol]['precision']['price'], DECIMAL_PLACES)
 
     def fee_to_precision(self, symbol, fee):
-        return self.truncate(float(fee), self.markets[symbol]['precision']['amount'])
+        return self.decimal_to_precision(fee, TRUNCATE, self.markets[symbol]['precision']['amount'], DECIMAL_PLACES)
 
     async def fetch_min_order_sizes(self):
-        html = None
-        try:
-            self.parseJsonResponse = False
-            html = await self.zendeskGet205893708WhatIsTheMinimumOrderSize()
-            self.parseJsonResponse = True
-        except Exception as e:
-            # ensure parseJsonResponse is restored no matter what
-            self.parseJsonResponse = True
-            raise e
+        html = await self.zendeskGet205893708WhatIsTheMinimumOrderSize()
         parts = html.split('ul>')
         ul = parts[1]
         listItems = ul.split('</li')
@@ -579,7 +576,7 @@ class kraken (Exchange):
 
     async def fetch_balance(self, params={}):
         await self.load_markets()
-        response = await self.privatePostBalance()
+        response = await self.privatePostBalance(params)
         balances = self.safe_value(response, 'result')
         if balances is None:
             raise ExchangeNotAvailable(self.id + ' fetchBalance failed due to a malformed response ' + self.json(response))
@@ -882,3 +879,7 @@ class kraken (Exchange):
                             if response['error'][i] in self.exceptions:
                                 raise self.exceptions[response['error'][i]](message)
                         raise ExchangeError(message)
+
+    async def request(self, path, api='public', method='GET', params={}, headers=None, body=None):
+        response = await self.fetch2(path, api, method, params, headers, body)
+        return self.parse_if_json_encoded_object(response)

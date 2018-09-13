@@ -24,6 +24,7 @@ class binance (Exchange):
             'name': 'Binance',
             'countries': ['JP'],  # Japan
             'rateLimit': 500,
+            'certified': True,
             # new metainfo interface
             'has': {
                 'fetchDepositAddress': True,
@@ -38,6 +39,9 @@ class binance (Exchange):
                 'fetchClosedOrders': True,
                 'withdraw': True,
                 'fetchFundingFees': True,
+                'fetchDeposits': True,
+                'fetchWithdrawals': True,
+                'fetchTransactions': False,
             },
             'timeframes': {
                 '1m': '1m',
@@ -284,6 +288,8 @@ class binance (Exchange):
                 '-1021': InvalidNonce,  # 'your time is ahead of server'
                 '-1022': AuthenticationError,  # {"code":-1022,"msg":"Signature for self request is not valid."}
                 '-1100': InvalidOrder,  # createOrder(symbol, 1, asdf) -> 'Illegal characters found in parameter 'price'
+                '-1104': ExchangeError,  # Not all sent parameters were read, read 8 parameters but was sent 9
+                '-1128': ExchangeError,  # {"code":-1128,"msg":"Combination of optional parameters invalid."}
                 '-2010': ExchangeError,  # generic error code for createOrder -> 'Account has insufficient balance for requested action.', {"code":-2010,"msg":"Rest API trading is not enabled."}, etc...
                 '-2011': OrderNotFound,  # cancelOrder(1, 'BTC/USDT') -> 'UNKNOWN_ORDER'
                 '-2013': OrderNotFound,  # fetchOrder(1, 'BTC/USDT') -> 'Order does not exist'
@@ -326,8 +332,6 @@ class binance (Exchange):
                 'price': market['quotePrecision'],
             }
             active = (market['status'] == 'TRADING')
-            # lot size is deprecated as of 2018.02.06
-            lot = -1 * math.log10(precision['amount'])
             entry = {
                 'id': id,
                 'symbol': symbol,
@@ -336,7 +340,6 @@ class binance (Exchange):
                 'baseId': baseId,
                 'quoteId': quoteId,
                 'info': market,
-                'lot': lot,  # lot size is deprecated as of 2018.02.06
                 'active': active,
                 'precision': precision,
                 'limits': {
@@ -349,7 +352,7 @@ class binance (Exchange):
                         'max': None,
                     },
                     'cost': {
-                        'min': lot,
+                        'min': -1 * math.log10(precision['amount']),
                         'max': None,
                     },
                 },
@@ -364,7 +367,6 @@ class binance (Exchange):
             if 'LOT_SIZE' in filters:
                 filter = filters['LOT_SIZE']
                 entry['precision']['amount'] = self.precision_from_string(filter['stepSize'])
-                entry['lot'] = self.safe_float(filter, 'stepSize')  # lot size is deprecated as of 2018.02.06
                 entry['limits']['amount'] = {
                     'min': self.safe_float(filter, 'minQty'),
                     'max': self.safe_float(filter, 'maxQty'),
@@ -525,11 +527,17 @@ class binance (Exchange):
         takerOrMaker = None
         if 'isMaker' in trade:
             takerOrMaker = 'maker' if trade['isMaker'] else 'taker'
+        symbol = None
+        if market is None:
+            marketId = self.safe_string(trade, 'symbol')
+            market = self.safe_value(self.markets_by_id, marketId)
+        if market is not None:
+            symbol = market['symbol']
         return {
             'info': trade,
             'timestamp': timestamp,
             'datetime': self.iso8601(timestamp),
-            'symbol': market['symbol'],
+            'symbol': symbol,
             'id': id,
             'order': order,
             'type': None,
@@ -555,7 +563,16 @@ class binance (Exchange):
         # 'fromId': 123,    # ID to get aggregate trades from INCLUSIVE.
         # 'startTime': 456,  # Timestamp in ms to get aggregate trades from INCLUSIVE.
         # 'endTime': 789,   # Timestamp in ms to get aggregate trades until INCLUSIVE.
-        # 'limit': 500,     # default = maximum = 500
+        # 'limit': 500,     # default = 500, maximum = 1000
+        #
+        # Caveats:
+        # - default limit(500) applies only if no other parameters set, trades up
+        #   to the maximum limit may be returned to satisfy other parameters
+        # - if both limit and time window is set and time window contains more
+        #   trades than the limit then the last trades from the window are returned
+        # - 'tradeId' accepted and returned by self method is "aggregate" trade id
+        #   which is different from actual trade id
+        # - setting both fromId and time window results in error
         response = self.publicGetAggTrades(self.extend(request, params))
         return self.parse_trades(response, market, since, limit)
 
@@ -569,23 +586,18 @@ class binance (Exchange):
         return statuses[status] if (status in list(statuses.keys())) else status.lower()
 
     def parse_order(self, order, market=None):
-        status = self.safe_value(order, 'status')
-        if status is not None:
-            status = self.parse_order_status(status)
+        status = self.parse_order_status(self.safe_string(order, 'status'))
         symbol = self.find_symbol(self.safe_string(order, 'symbol'), market)
         timestamp = None
         if 'time' in order:
             timestamp = order['time']
         elif 'transactTime' in order:
             timestamp = order['transactTime']
-        iso8601 = None
-        if timestamp is not None:
-            iso8601 = self.iso8601(timestamp)
         price = self.safe_float(order, 'price')
         amount = self.safe_float(order, 'origQty')
         filled = self.safe_float(order, 'executedQty')
         remaining = None
-        cost = None
+        cost = self.safe_float(order, 'cummulativeQuoteQty')
         if filled is not None:
             if amount is not None:
                 remaining = amount - filled
@@ -593,11 +605,17 @@ class binance (Exchange):
                     remaining = float(self.amount_to_precision(symbol, remaining))
                 remaining = max(remaining, 0.0)
             if price is not None:
-                cost = price * filled
+                if cost is None:
+                    cost = price * filled
         id = self.safe_string(order, 'orderId')
         type = self.safe_string(order, 'type')
         if type is not None:
             type = type.lower()
+            if type == 'market':
+                if price == 0.0:
+                    if (cost is not None) and(filled is not None):
+                        if (cost > 0) and(filled > 0):
+                            price = cost / filled
         side = self.safe_string(order, 'side')
         if side is not None:
             side = side.lower()
@@ -625,7 +643,7 @@ class binance (Exchange):
             'info': order,
             'id': id,
             'timestamp': timestamp,
-            'datetime': iso8601,
+            'datetime': self.iso8601(timestamp),
             'lastTradeTimestamp': None,
             'symbol': symbol,
             'type': type,
@@ -653,7 +671,7 @@ class binance (Exchange):
         uppercaseType = type.upper()
         order = {
             'symbol': market['id'],
-            'quantity': self.amount_to_string(symbol, amount),
+            'quantity': self.amount_to_precision(symbol, amount),
             'type': uppercaseType,
             'side': side.upper(),
             'newOrderRespType': self.options['newOrderRespType'],  # 'ACK' for order id, 'RESULT' for full order or 'FULL' for order with fills
@@ -760,6 +778,94 @@ class binance (Exchange):
         response = self.privateGetMyTrades(self.extend(request, params))
         return self.parse_trades(response, market, since, limit)
 
+    def fetch_deposits(self, code=None, since=None, limit=None, params={}):
+        self.load_markets()
+        if code is None:
+            raise ExchangeError(self.id + ' fetchDeposits() requires a currency code arguemnt')
+        currency = self.currency(code)
+        request = {
+            'asset': currency['id'],
+        }
+        if since is not None:
+            request['startTime'] = since
+        response = self.wapiGetDepositHistory(self.extend(request, params))
+        return self.parseTransactions(response['depositList'], currency, since, limit)
+
+    def fetch_withdrawals(self, code=None, since=None, limit=None, params={}):
+        self.load_markets()
+        if code is None:
+            raise ExchangeError(self.id + ' fetchWithdrawals() requires a currency code arguemnt')
+        currency = self.currency(code)
+        request = {
+            'asset': currency['id'],
+        }
+        if since is not None:
+            request['startTime'] = since
+        response = self.wapiGetWithdrawHistory(self.extend(request, params))
+        return self.parseTransactions(response['withdrawList'], currency, since, limit)
+
+    def parse_transaction_status_by_type(self, status, type=None):
+        if type is None:
+            return status
+        statuses = {
+            'deposit': {
+                '0': 'pending',
+                '1': 'ok',
+            },
+            'withdrawal': {
+                '0': 'pending',
+                '1': 'canceled',  # different from 1 = ok in deposits
+                '2': 'pending',
+                '3': 'failed',
+                '4': 'pending',
+                '5': 'failed',
+                '6': 'ok',
+            },
+        }
+        return statuses[type][status] if (status in list(statuses[type].keys())) else status
+
+    def parse_transaction(self, transaction, currency=None):
+        # addressTag = self.safe_string(transaction, 'addressTag')  # set but unused
+        address = self.safe_string(transaction, 'address')
+        txid = self.safe_value(transaction, 'txId')
+        code = None
+        if currency is None:
+            currencyId = self.safe_string(transaction, 'currency')
+            if currencyId in self.currencies_by_id:
+                currency = self.currencies_by_id[currencyId]
+            else:
+                code = self.common_currency_code(currencyId)
+        if currency is not None:
+            code = currency['code']
+        timestamp = None
+        insertTime = self.safe_integer(transaction, 'insertTime')
+        applyTime = self.safe_integer(transaction, 'applyTime')
+        type = self.safe_string(transaction, 'type')
+        if type is None:
+            if (insertTime is not None) and(applyTime is None):
+                type = 'deposit'
+                timestamp = insertTime
+            elif (insertTime is None) and(applyTime is not None):
+                type = 'withdrawal'
+                timestamp = applyTime
+        status = self.parse_transaction_status_by_type(self.safe_string(transaction, 'status'), type)
+        amount = self.safe_float(transaction, 'amount')
+        fee = None
+        return {
+            'info': transaction,
+            'id': None,
+            'txid': txid,
+            'timestamp': timestamp,
+            'datetime': self.iso8601(timestamp),
+            'address': address,
+            'type': type,
+            'amount': amount,
+            'currency': code,
+            'status': status,
+            'updated': None,
+            'fee': fee,
+        }
+
     def fetch_deposit_address(self, code, params={}):
         self.load_markets()
         currency = self.currency(code)
@@ -778,8 +884,8 @@ class binance (Exchange):
                 }
 
     def fetch_funding_fees(self, codes=None, params={}):
-        #  by default it will try load withdrawal fees of all currencies(with separate requests)
-        #  however if you define codes = ['ETH', 'BTC'] in args it will only load those
+        # by default it will try load withdrawal fees of all currencies(with separate requests)
+        # however if you define codes = ['ETH', 'BTC'] in args it will only load those
         self.load_markets()
         withdrawFees = {}
         info = {}
@@ -861,7 +967,7 @@ class binance (Exchange):
             if body.find('Price * QTY is zero or less') >= 0:
                 raise InvalidOrder(self.id + ' order cost = amount * price is zero or less ' + body)
             if body.find('LOT_SIZE') >= 0:
-                raise InvalidOrder(self.id + ' order amount should be evenly divisible by lot size, use self.amount_to_lots(symbol, amount) ' + body)
+                raise InvalidOrder(self.id + ' order amount should be evenly divisible by lot size ' + body)
             if body.find('PRICE_FILTER') >= 0:
                 raise InvalidOrder(self.id + ' order price exceeds allowed price precision or invalid, use self.price_to_precision(symbol, amount) ' + body)
         if len(body) > 0:
@@ -871,11 +977,16 @@ class binance (Exchange):
                 # response in format {'msg': 'The coin does not exist.', 'success': True/false}
                 success = self.safe_value(response, 'success', True)
                 if not success:
-                    if 'msg' in response:
+                    message = self.safe_string(response, 'msg')
+                    parsedMessage = None
+                    if message is not None:
                         try:
-                            response = json.loads(response['msg'])
+                            parsedMessage = json.loads(message)
                         except Exception as e:
-                            response = {}
+                            # do nothing
+                            parsedMessage = None
+                        if parsedMessage is not None:
+                            response = parsedMessage
                 # checks against error codes
                 error = self.safe_string(response, 'code')
                 if error is not None:
@@ -895,9 +1006,9 @@ class binance (Exchange):
                             raise ExchangeNotAvailable(self.id + ' ' + body)
                         raise exceptions[error](self.id + ' ' + body)
                     else:
-                        raise ExchangeError(self.id + ': unknown error code: ' + body + ' ' + error)
+                        raise ExchangeError(self.id + ' ' + body)
                 if not success:
-                    raise ExchangeError(self.id + ': success value False: ' + body)
+                    raise ExchangeError(self.id + ' ' + body)
 
     def request(self, path, api='public', method='GET', params={}, headers=None, body=None):
         response = self.fetch2(path, api, method, params, headers, body)
